@@ -13,7 +13,7 @@ create table UserAccount
 	phone	bigint not null,
 	status	char(1) not null,
 	honest	bigint not null,     //四字节四字节一存，前四字节表示除以过2的个数，后四字节表示未除以2之前的个数
-	ip		int unsigned not null            //直接存储大端法的网络地址
+	ip	int unsigned not null            //直接存储大端法的网络地址
 )engine=InnoDB default charset=utf8;
 
 //交通事件表
