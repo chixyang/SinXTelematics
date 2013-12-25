@@ -12,7 +12,7 @@ create table UserAccount
 	city	varchar(15) not null,    //汉字在utf8编码中占据三个字节
 	phone	bigint not null,
 	status	char(1) not null enum('i','o') default 'i',  //i: login 表示录入，o：logout 表示录出，当用户注册的时候处于登录状态
-	honest	bigint not null default 1,     //四字节四字节一存，前四字节表示除以过2的个数，后四字节表示未除以2之前的个数
+	honest	double not null default 0.5,     //所有人默认新注册时都是0.5
 	ip	int unsigned not null            //直接存储大端法的网络地址
 )engine=InnoDB default charset=utf8;
 
@@ -26,7 +26,7 @@ create table TrafficEvent
 	lng	decimal(15,12) not null,
 	street	varchar(30) not null,
 	city	varchar(15)	not null,
-	status	tinyint	not null
+	status	double	not null
 )engine=InnoDB default charset=utf8;
 
 //设置auto_increment值从10000开始，10000以内的备用
