@@ -1,4 +1,3 @@
-
 /**
  * 线程池函数实现文件
  */
@@ -118,7 +117,7 @@ int pool_add_task(void *(*process) (void *arg), void *arg)
     pool->cur_queue_size++;
     
     pthread_mutex_unlock (&(pool->queue_lock));
-    /*唤醒一个等待线程*/
+    /*唤醒至少一个等待线程*/
     pthread_cond_signal (&(pool->queue_ready));
     
     return 0;
@@ -172,9 +171,17 @@ void *thread_routine(void *arg)
     while (1)
     {
         pthread_mutex_lock (&(pool->queue_lock));
-        /*如果等待队列为0并且不销毁线程池，则处于阻塞状态; 
-        pthread_cond_wait是一个原子操作，等待前和等待时会解锁，唤醒后会加锁*/
-        while (pool->cur_queue_size == 0 && !pool->shutdown)   //任务队列等于0的时候才会wait，否则线程执行任务
+        /*如果等待队列为0并且不销毁线程池，则处于阻塞状态; pthread_cond_wait是一个原子操作，等待前和等待时会解锁，唤醒后会加锁*/
+        
+        /*
+         * pthread_cond_wait使用while循环的两个原因：
+         * 1.防止假唤醒，因为唤醒线程的不一定是signal或者broadcast，有可能是系统的一些信号，循环判断可以防止这类情况
+         * 2.signal一次至少可以唤醒一个线程，但是加锁成功的却只有一个，也就是，除了一个线程能运行出while循环以外，其他
+         * 线程还是卡在pthread_cond_wait上等待锁，但却不需要条件唤醒了，待到获得锁的线程执行完程序后，上次被唤醒并卡在
+         * wait上的线程获得锁，如果没有while循环，就直接运行下面代码了，这时如果任务队列size==0，就会出错。
+         */
+        
+        while(pool->cur_queue_size == 0 && !pool->shutdown)   //任务队列等于0的时候才会wait，否则线程执行队列中的任务
         {
             Debug("thread 0x%x is waiting\n",pthread_self());
             pthread_cond_wait(&(pool->queue_ready), &(pool->queue_lock));
@@ -190,11 +197,11 @@ void *thread_routine(void *arg)
 
         Debug("thread 0x%x is starting to work\n", pthread_self ());
 
-        /*判断是否调度出现问题，任务队列是否当前为空*/
+        /*判断是否调度出现问题，任务队列是否当前为空，能进来的队列一定不为空*/
         if((pool->cur_queue_size == 0) || (pool->queue_head == NULL));
         {
           perror("任务队列为空，调度出现问题！");
-          exit(1);  //异常退出，资源都被回收
+          exit(1);  //异常退出，资源都被回收，线程调用会终止进程及其他线程
         }
         
         /*等待队列长度减去1，并取出链表中的头元素*/
