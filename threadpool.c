@@ -52,7 +52,6 @@ int pool_init (int max_thread_num)
 
     pool->queue_head = NULL;
 
-    pool->max_thread_num = max_thread_num;
     pool->cur_queue_size = 0;
 
     pool->shutdown = 0;    //表示线程池正常工作，未被撤销
@@ -209,6 +208,40 @@ void *thread_routine(void *arg)
     }
     /*该句不可达的*/
     pthread_exit (NULL);
+}
+
+//给线程池中新加线程
+int pool_add_thread(int add_num)
+{
+    if((pool == NULL) || (pool -> shutdown == 1))  //线程池存在问题
+     return -1;
+    
+    //新建一个大的空间存储原来的线程和添加的线程号
+    pthread_t *tmp = (pthread_t *) malloc ((pool->max_thread_num + add_num) * sizeof (pthread_t));
+    if(tmp == NULL)
+    {
+       strerror(errno);
+       return 0;
+    }
+    //原来数据复制到当前新区域
+    memcpy(tmp,pool->tid,(pool->max_thread_num * sizeof (pthread_t)));
+    //释放原空间并将tid设置为新空间
+    free(pool->tid);
+    pool->tid = tmp;
+    tmp = NULL;
+    
+    //创建新线程
+    int i = 0 , err = 0;
+    for (; i < add_num; i++)
+    { 
+        err = pthread_create (&(pool->tid[pool->max_thread_num + i]), NULL, thread_routine,NULL);
+        if(err != 0) //创建错误
+            break;
+    }
+    
+    pool->max_thread_num += i;   //i为实际创建的线程数目
+    
+    return pool->max_thread_num;
 }
 
 //    下面是测试代码
