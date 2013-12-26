@@ -140,6 +140,7 @@ int pool_destroy()
     /*等待所有线程退出*/
     int i;
     for(i = 0; i < pool->max_thread_num; i++)
+      if(pool->tid[i] != NULL)  //创建线程时可能创建失败，但失败的都被初始化为0，所以失败的不用join
         pthread_join(pool->tid[i], NULL);
     free(pool->tid);
     pool->max_thread_num = 0;
@@ -217,12 +218,15 @@ int pool_add_thread(int add_num)
      return -1;
     
     //新建一个大的空间存储原来的线程和添加的线程号
-    pthread_t *tmp = (pthread_t *) malloc ((pool->max_thread_num + add_num) * sizeof (pthread_t));
+    int bytesize = (pool->max_thread_num + add_num) * sizeof (pthread_t);
+    pthread_t *tmp = (pthread_t *) malloc (bytesize);
     if(tmp == NULL)
     {
        strerror(errno);
        return 0;
     }
+    //初始化
+    memset(tmp,0,bytesize);
     //原来数据复制到当前新区域
     memcpy(tmp,pool->tid,(pool->max_thread_num * sizeof (pthread_t)));
     //释放原空间并将tid设置为新空间
@@ -241,7 +245,7 @@ int pool_add_thread(int add_num)
     
     pool->max_thread_num += i;   //i为实际创建的线程数目
     
-    return pool->max_thread_num;
+    return i;
 }
 
 //    下面是测试代码
