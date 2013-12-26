@@ -1,28 +1,25 @@
 /**
  * 线程池函数实现文件
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <pthread.h>
-#include <errno.h>
+ 
+#include "threadpool.h"
 
 /*
 *线程池中所有运行和等待的任务都是一个threadtask
 */
-typedef struct task
+
+struct Task
 {
     /*任务函数*/
     void *(*process) (void *arg);
     void *arg;/*任务函数的参数*/
     struct task *next;
-} threadtask;
+};
 
 
 
 /*线程池结构*/
-typedef struct
+struct ThreadPool
 {
     //任务队列互斥访问锁
     pthread_mutex_t queue_lock;
@@ -41,19 +38,11 @@ typedef struct
     /*当前等待队列的任务数目*/
     int cur_queue_size;
 
-} threadpool;
+};
 
 
-
-int pool_add_task (void *(*process) (void *arg), void *arg);
-
-//线程未接到任务时的平常工作
-void *thread_routine (void *arg);
-
-
-//线程池指针
-static threadpool *pool = NULL;
-void pool_init (int max_thread_num)
+//线程池初始化
+int pool_init (int max_thread_num)
 {
     pool = (threadpool *) malloc (sizeof (threadpool));
 
@@ -69,13 +58,18 @@ void pool_init (int max_thread_num)
     pool->shutdown = 0;    //表示线程池正常工作，未被撤销
 
     pool->tid = (pthread_t *) malloc (max_thread_num * sizeof (pthread_t));
-    int i = 0;
-    for (i = 0; i < max_thread_num; i++)
+    int i = 0 , err = 0;
+    for (; i < max_thread_num; i++)
     { 
-        pthread_create (&(pool->tid[i]), NULL, thread_routine,NULL);
+        err = pthread_create (&(pool->tid[i]), NULL, thread_routine,NULL);
+        if(err != 0) //创建错误
+            break;
     }
+    
+    pool->max_thread_num = i;   //i为实际创建的线程数目
+    
+    return pool->max_thread_num;
 }
-
 
 
 /*加入任务到线程池中*/
@@ -124,7 +118,6 @@ int pool_add_task(void *(*process) (void *arg), void *arg)
 }
 
 
-
 /*销毁线程池，等待队列中的任务不会再被执行，但是正在运行的线程会一直把任务运行完后再退出*/
 int pool_destroy()
 {
@@ -163,8 +156,7 @@ int pool_destroy()
     return 0;
 }
 
-
-
+//线程任务函数
 void *thread_routine(void *arg)
 {
     Debug("starting thread 0x%x\n", pthread_self());
