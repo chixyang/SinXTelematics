@@ -60,12 +60,6 @@ void *thread_routine (void *arg);
  */
 int pool_add_thread(int add_num);
 
-/**
- * 从线程池中减少线程
- * @param sub_num 减少线程的数目
- * @return 减少线程的数目。-1表示线程池存在问题
- */
-int pool_sub_thread(int sub_num);  //此函数尚未完成
 
 
 
