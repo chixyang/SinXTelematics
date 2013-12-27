@@ -7,7 +7,13 @@
 
 #include "debug.h"
 
+//数据库池节点
+struct DBpool dbpool;
 
+//忙碌列表类型
+typedef struct DBBusyList dbBusyList;
+//空闲列表类型
+typedef struct DBIdleList dbIdleList;
 
 
 
