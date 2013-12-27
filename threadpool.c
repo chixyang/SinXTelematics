@@ -134,7 +134,11 @@ int pool_destroy()
 {
     if (pool->shutdown)
         return -1;/*已经被销毁，防止再次调用*/
+    
+    //公共变量的修改都需要加锁
+    pthread_mutex_lock (&(pool->queue_lock));
     pool->shutdown = 1;
+    pthread_mutex_unlock (&(pool->queue_lock));
 
     /*唤醒所有等待线程，线程池要销毁了*/
     pthread_cond_broadcast (&(pool->queue_ready));
@@ -189,7 +193,7 @@ void *thread_routine(void *arg)
         {
             Debug("thread 0x%x is waiting\n",pthread_self());
             pthread_cond_wait(&(pool->queue_ready), &(pool->queue_lock));
-        }//之所以用while是因为担心broadcast的情况，signal不需要用while
+        }
 
         /*线程池销毁,线程退出*/
         if (pool->shutdown)
@@ -223,11 +227,15 @@ void *thread_routine(void *arg)
     pthread_exit (NULL);
 }
 
-//给线程池中新加线程
+//给线程池中新加线程，单独子线程而非主线程完成的任务，所以要加锁
 int pool_add_thread(int add_num)
 {
+    pthread_mutex_lock (&(pool->queue_lock));
     if((pool == NULL) || (pool -> shutdown == 1))  //线程池存在问题
+    {
+     pthread_mutex_unlock (&(pool->queue_lock));
      return -1;
+    }
     
     //新建一个大的空间存储原来的线程和添加的线程号
     int bytesize = (pool->max_thread_num + add_num) * sizeof (pthread_t);
@@ -235,6 +243,7 @@ int pool_add_thread(int add_num)
     if(tmp == NULL)
     {
        strerror(errno);
+       pthread_mutex_unlock (&(pool->queue_lock));
        return 0;
     }
     //初始化
@@ -257,37 +266,14 @@ int pool_add_thread(int add_num)
     
     pool->max_thread_num += i;   //i为实际创建的线程数目
     
+    pthread_mutex_unlock (&(pool->queue_lock));
+    
     return i;
 }
 
-//    下面是测试代码
 
-void *
-myprocess (void *arg)
-{
-    printf ("threadid is 0x%x, working on task %d\n", pthread_self (),*(int *) arg);
-    sleep (1);/*休息一秒，延长任务的执行时间*/
-    return NULL;
-}
 
-int
-main (int argc, char **argv)
-{
-    pool_init (3);/*线程池中最多三个活动线程*/
-    
-    /*连续向池中投入10个任务*/
-    int *workingnum = (int *) malloc (sizeof (int) * 10);
-    int i;
-    for (i = 0; i < 10; i++)
-    {
-        workingnum[i] = i;
-        pool_add_worker (myprocess, &workingnum[i]);
-    }
-    /*等待所有任务完成*/
-    sleep (5);
-    /*销毁线程池*/
-    pool_destroy ();
 
-    free (workingnum);
-    return 0;
-}
+
+
+
