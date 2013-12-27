@@ -1,4 +1,3 @@
-
 /**
  * 线程池函数定义文件
  */
@@ -27,7 +26,7 @@ static threadpool *pool;  //最后开始时初始化为NULL
 /**
  * 线程池初始化函数
  * @param max_thread_num：要产生的最大线程数量
- * @return 实际创建的线程数目
+ * @return 实际创建的线程数目,-1表示初始化失败
  */
 int pool_init (int max_thread_num);
 
@@ -53,6 +52,13 @@ int pool_destroy();
  * @return void* 一般不返回
  */
 void *thread_routine (void *arg);
+
+/**
+ * 给线程池中新加线程
+ * @param add_num 新加线程的数目
+ * @return 加成功线程的数目，-1表示线程池存在问题
+ */
+int pool_add_thread(int add_num);
 
 
 
