@@ -56,7 +56,17 @@ int pool_init (int max_thread_num)
 
     pool->shutdown = 0;    //表示线程池正常工作，未被撤销
 
-    pool->tid = (pthread_t *) malloc (max_thread_num * sizeof (pthread_t));
+    int bytesize = max_thread_num * sizeof (pthread_t);
+    pool->tid = (pthread_t *) malloc (bytesize);
+    
+    if(pool->tid == NULL) //未分配成功
+    {
+     strerror(errno);
+     return -1;
+    }
+    //初始化
+    memset(pool->tid,0,bytesize);
+    
     int i = 0 , err = 0;
     for (; i < max_thread_num; i++)
     { 
@@ -104,6 +114,8 @@ int pool_add_task(void *(*process) (void *arg), void *arg)
     if(pool->queue_head == NULL)
     {
       perror("线程任务队列出现问题");
+      free(newtask);
+      pthread_mutex_unlock (&(pool->queue_lock));
       return -1;
     }
 
@@ -239,7 +251,7 @@ int pool_add_thread(int add_num)
     for (; i < add_num; i++)
     { 
         err = pthread_create (&(pool->tid[pool->max_thread_num + i]), NULL, thread_routine,NULL);
-        if(err != 0) //创建错误
+        if(err != 0) //创建错误,不管创建错误后多分配的那部分空间
             break;
     }
     
