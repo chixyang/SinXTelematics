@@ -21,17 +21,10 @@ struct DBpool
 };
 
 //忙碌表结构
-struct DBBusyList
+struct DBList
 {
   MYSQL * db_link;
-  struct DBBusyList *next;
-};
-
-//空闲表结构
-struct DBIdleList
-{
-  MYSQL * db_link;
-  struct DBIdleList *next;
+  struct DBList *next;
 };
 
 //初始化数据库池
@@ -51,7 +44,7 @@ int dbpool_init(int max_size)
   dbcond = PTHREAD_COND_INITIALIZER;
   
   //先建立1个空闲节点
-  dbpool->idlelist = (struct DBIdleList *)malloc(sizeof(struct DBIdleList));
+  dbpool->idlelist = (struct DBList *)malloc(sizeof(struct DBList));
   dbIdleList tmpnode = dbpool->idlelist;
   //建立空闲节点的数据库连接  
   MYSQL *conn=mysql_init((MYSQL *)NULL);
@@ -69,7 +62,7 @@ int dbpool_init(int max_size)
   int i = 1;
   for(;i < max_size;i++)
   {
-    tmpnode->next = (struct DBIdleList *)malloc(sizeof(struct DBIdleList));
+    tmpnode->next = (struct DBList *)malloc(sizeof(struct DBList));
     conn = mysql_init((MYSQL *)NULL);
     if(!mysql_real_connect(conn, server, user, password, database, 3306, NULL, 0)) 
     {
@@ -91,7 +84,7 @@ int dbpool_init(int max_size)
 }
 
 //获取空闲链接如果空闲列表不为空
-dbIdleList* getIdleConn()
+MYSQL* getIdleConn()
 {
   pthread_mutex_lock (&(dbpool->db_idlelock));
   
@@ -112,7 +105,7 @@ dbIdleList* getIdleConn()
   
   pthread_mutex_unlock (&db_idlelock);
   
-  return tmp;
+  return tmp->db_link;
 }
 
 //插入忙碌列表
@@ -135,7 +128,7 @@ int inBusyList(dbBusyList *dbl)
   dbBusyList *tmp = dbpool->busylist->next;
   dbpool->busylist = dbl;
   dbl->next = tmp;
-  /*空闲列表不为空的时候要不要signal？？？？？？？？？？？？？？？*/
+  /*空闲列表不为空的时候不需要signal*/
   pthread_mutex_unlock (&(dbpool->db_busylock));
   
   return 0;
@@ -179,29 +172,55 @@ int inIdleList(dbIdleList *dil)
 }
 
 //回收链接
-int recycleConn(dbBusyList *dbl)
+int recycleConn(MYSQL *link)
 {
-  if(dbl == NULL)
+  if(link == NULL)
     return 0;
   
   pthread_mutex_lock (&(dbpool->db_busylock));
-  //如果该节点是最后一个节点，则直接将该节点加入空闲列表
-  if(dbl->next == NULL)
+  //获得该节点的前一个节点
+  dbBusyList *preNode = NULL, curNode = NULL;
+  int tmp = getPreNode(dbpool->busylist,link,preNode);
+  if(tmp != 0)//列表中无该节点
   {
-    inIdleList(dbl);
-    dbpool->idle_size++;
     pthread_mutex_unlock (&(dbpool->db_busylock));
-    return 0;
+    return -1;
   }
-  //如果该节点不是最后一个节点，则将该节点和下一个节点的内容调换，删除下一个节点
-  
-  
-  
-  
+  else //列表中有该节点
+  {
+    if(preNode == NULL)  //该节点为第一个节点，无前一节点
+    {
+      curNode = dbpool->busylist;
+      dbpool->busylist = NULL;    //删除当前节点，并置为NULL
+    }
+    else
+    {
+      curNode = preNode->next;
+      preNode->next = curNode->next;   //删除当前节点
+    }
+  }
   pthread_mutex_unlock (&(dbpool->db_busylock));
+  curNode->next = NULL;
+  inIdleList(curNode);
+  
+  return 0;
 }
 
-
+int getPreNode(dbList *dblist,MYSQL *link,dbList *curNode)
+{
+  if((dblist == NULL) || (link == NULL) || (curNode == NULL))   //不能允许任何一个为空
+    return -1;
+  
+  //把给定的dblist当做链表的第一个节点
+  dbList *dl = dblist;
+  int bytesize = sizeof(MYSQL);
+  if(!memcmp(dl->db_link,link,bytesize)) //link为首节点的
+  {
+    curNode = NULL;
+    return 0;
+  }
+  //比较所有节点的next
+}
 
 
 
