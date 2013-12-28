@@ -17,7 +17,7 @@ struct DBpool
   pthread_cond_t dbcond;    //条件
   dbBusyList *busylist;     //忙碌列表
   dbIdleList *idlelist;     //空闲列表
-  int idle_size;            //空闲列表大小,专门加这个值是为了确保程序的正确性
+  int idle_size;            //空闲列表大小,专门加这个值是为了确保程序的正确性，还可以帮助系统分析是否添加数据库链接
 };
 
 //忙碌表结构
@@ -43,39 +43,30 @@ int dbpool_init(int max_size)
   db_busylock = PTHREAD_MUTEX_INITIALIZER;
   dbcond = PTHREAD_COND_INITIALIZER;
   
-  //先建立1个空闲节点
+  //建立max_size-1个空闲节点
   bytesize = sizeof(dbList);
-  dbpool->idlelist = (dbList *)malloc(bytesize);
-  dbIdleList *tmpnode = dbpool->idlelist;
-  memset(tmpnode,0,bytesize);
-  //建立空闲节点的数据库连接  
-  MYSQL *conn=mysql_init((MYSQL *)NULL);
-  //连接到数据库
-  if(!mysql_real_connect(conn, server, user, password, database, 3306, NULL, 0)) 
-  {
-    perror("create mysql connection error\n");
-    mysql_close(conn);
-    conn = NULL;
-    free(tmpnode);
-    return -1;
-  }
-  tmpnode->db_link = conn;
-  //然后再建立max_size-1个空闲节点
-  int i = 1;
+  dbIdleList *tmpnode = NULL;
+  dbpool->idlelist = NULL;
+  MYSQL *conn = NULL;
+  int i = 0;
   for(;i < max_size;i++)
   {
-    tmpnode->next = (dbList *)malloc(bytesize);
-    memset(tmpnode->next,0,bytesize);   //初始化
+    tmpnode = (dbList *)malloc(bytesize);
+    memset(tmpnode,0,bytesize);   //初始化
     conn = mysql_init((MYSQL *)NULL);
     if(!mysql_real_connect(conn, server, user, password, database, 3306, NULL, 0)) 
     {
       perror("create mysql connection error\n");
       mysql_close(conn);
       conn = NULL;
-      free(tmpnode->next);
+      free(tmpnode);
+      tmpnode = NULL;
       break;
     }
-    tmpnode->next->db_link = conn;
+    tmpnode->db_link = conn;
+    //第一个节点给节点头
+    if(!i)
+      dbpool->idlelist = tmpnode;
     //下一个节点
     tmpnode = tmpnode->next;
   }
@@ -240,7 +231,54 @@ int getPreNode(dbList *dblist,MYSQL *link,dbList *preNode)
   return -1;
 }
 
+//向链接池中添加新链接
+int dbpool_add_dblink(int add_num)
+{
+  if(add_num == 0)
+    return -1;
+  //添加add_num个新数据库链接到空闲表  
+  pthread_mutex_lock (&(dbpool->db_idlelock));
+  
+  bytesize = sizeof(dbList);
+  dbIdleList *tmpnode = NULL , *firstnode = dbpool->idlelist;
+  MYSQL *conn = NULL;
+  int i = 0;
+  for(;i < add_num;i++)   //添加add_num个
+  {
+    tmpnode = (dbList *)malloc(bytesize);
+    memset(tmpnode,0,bytesize);   //初始化
+    conn = mysql_init((MYSQL *)NULL);
+    if(!mysql_real_connect(conn, server, user, password, database, 3306, NULL, 0)) 
+    {
+      perror("create mysql connection error\n");
+      mysql_close(conn);
+      conn = NULL;
+      free(tmpnode);
+      tmpnode = NULL;
+      break;
+    }
+    tmpnode->db_link = conn;
+    //第一个节点给节点头
+    if(!i)
+      dbpool->idlelist = tmpnode;
+    //下一个节点
+    tmpnode = tmpnode->next;
+  }
+  
+  //原来的空闲链接点插在新加的节点之后
+  tmpnode = firstnode;
+  //加上新加的链接数目
+  dbpool->idle_size += i;
+  pthread_mutex_unlock (&(dbpool->db_idlelock));
+  
+  return i;
+}
 
+//销毁连接池
+int dbpool_destroy()
+{
+  
+}
 
 
 
