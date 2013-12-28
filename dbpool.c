@@ -18,6 +18,7 @@ struct DBpool
   dbBusyList *busylist;     //忙碌列表
   dbIdleList *idlelist;     //空闲列表
   int idle_size;            //空闲列表大小,专门加这个值是为了确保程序的正确性，还可以帮助系统分析是否添加数据库链接
+  int db_shutdown;          //关闭标识符，0表示线程池正常使用，1表示线程池撤销
 };
 
 //忙碌表结构
@@ -39,9 +40,10 @@ int dbpool_init(int max_size)
   memset(dbpool,0,bytesize);
   
   //初始化互斥和条件变量
-  db_idlelock = PTHREAD_MUTEX_INITIALIZER;
-  db_busylock = PTHREAD_MUTEX_INITIALIZER;
-  dbcond = PTHREAD_COND_INITIALIZER;
+  dbpool->db_idlelock = PTHREAD_MUTEX_INITIALIZER;
+  dbpool->db_busylock = PTHREAD_MUTEX_INITIALIZER;
+  dbpool->dbcond = PTHREAD_COND_INITIALIZER;
+  dbpool->db_shutdown = 0;
   
   //建立max_size-1个空闲节点
   bytesize = sizeof(dbList);
@@ -82,6 +84,13 @@ MYSQL* getIdleConn()
 {
   pthread_mutex_lock (&(dbpool->db_idlelock));
   
+  //判断是否数据库池已经被关闭
+  if(dbpool->db_shutdown == 1)
+  {
+    pthread_mutex_unlock (&(dbpool->db_idlelock));
+    return NULL;
+  }
+  
   while((dbpool == NULL)|| (dbpool->idle_size == 0))  //数据库池或者空闲列表为空
      pthread_cond_wait(&(dbpool->dbcond),&(dbpool->db_idlelock));
   //空闲表出现错误
@@ -111,6 +120,13 @@ int inBusyList(dbBusyList *dbl)
     
   pthread_mutex_lock (&(dbpool->db_busylock));
   
+    //判断是否数据库池已经被关闭
+  if(dbpool->db_shutdown == 1)
+  {
+    pthread_mutex_unlock (&(dbpool->db_busylock));
+    return -1;
+  }
+  
   //如果忙碌表为空，直接作为第一个元素
   if(dbpool->busylist == NULL)
   {
@@ -136,6 +152,13 @@ int inIdleList(dbIdleList *dil)
     return -1;
     
   pthread_mutex_lock (&(dbpool->db_idlelock));
+  
+    //判断是否数据库池已经被关闭
+  if(dbpool->db_shutdown == 1)
+  {
+    pthread_mutex_unlock (&(dbpool->db_idlelock));
+    return -1;
+  }
   
   //如果空闲列表为空，直接作为第一个元素
   if(dbpool->idle_size == 0)
@@ -173,6 +196,14 @@ int recycleConn(MYSQL *link)
     return -1;
   
   pthread_mutex_lock (&(dbpool->db_busylock));
+  
+    //判断是否数据库池已经被关闭
+  if(dbpool->db_shutdown == 1)
+  {
+    pthread_mutex_unlock (&(dbpool->db_busylock));
+    return -1;
+  }
+  
   //获得该节点的前一个节点
   dbBusyList *preNode = NULL, curNode = NULL;
   int tmp = getPreNode(dbpool->busylist,link,preNode);
@@ -239,6 +270,13 @@ int dbpool_add_dblink(int add_num)
   //添加add_num个新数据库链接到空闲表  
   pthread_mutex_lock (&(dbpool->db_idlelock));
   
+    //判断是否数据库池已经被关闭
+  if(dbpool->db_shutdown == 1)
+  {
+    pthread_mutex_unlock (&(dbpool->db_idlelock));
+    return -1;
+  }
+  
   bytesize = sizeof(dbList);
   dbIdleList *tmpnode = NULL , *firstnode = dbpool->idlelist;
   MYSQL *conn = NULL;
@@ -277,7 +315,51 @@ int dbpool_add_dblink(int add_num)
 //销毁连接池
 int dbpool_destroy()
 {
-  
+   //如果数据库池提前被销毁
+   if((dbpool == NULL) || (dbpool->db_shutdown == 1))
+    return -1;
+    
+   //获取两个锁，这其实是非常危险的行为，很容易导致死锁
+   pthread_mutex_lock (&(dbpool->db_idlelock));
+   pthread_mutex_lock (&(dbpool->db_busylock));
+   
+   dbpool->db_shutdown = 1;   //关闭数据库连接池
+   
+   pthread_mutex_unlock (&(dbpool->db_idlelock));
+   pthread_mutex_unlock (&(dbpool->db_busylock));
+   
+   /*销毁两个链表的数据*/
+   dbList *tmp = NULL;
+   //销毁空闲链表
+   for(int i = 0; i < dbpool->idle_size; i++)
+   {
+     //从链表上删除tmp节点
+     tmp = dbpool->idlelist;
+     dbpool->idlelist = tmp->next;
+     //销毁tmp节点
+     mysql_close(tmp->db_link);
+     free(tmp);
+   }
+   dbpool->idlelist = NULL;
+   
+   //应该先等待忙碌列表程序完成
+   //销毁忙碌链表
+   do{
+     //从链表上删除tmp节点
+     tmp = dbpool->busylist;
+     dbpool->busylist = tmp->next;
+     //销毁tmp节点
+     mysql_close(tmp->db_link);
+     free(tmp);
+   }while(dbpool->busylist);
+   
+   //销毁变量
+   pthread_mutex_destroy(&(dbpool->db_idlelock));
+   pthread_mutex_destroy(&(dbpool->db_busylock));
+   pthread_cond_destroy(&(dbpool->dbcond));
+   dbpool->idlesize = 0;
+   
+   return 0;
 }
 
 
