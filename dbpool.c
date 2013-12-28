@@ -334,6 +334,9 @@ int dbpool_destroy()
    pthread_mutex_unlock (&(dbpool->db_idlelock));
    pthread_mutex_unlock (&(dbpool->db_busylock));
    
+   //唤醒所有等待操作
+   pthread_cond_broadcast(&(dbpool->dbcond));
+   
    /*销毁两个链表的数据*/
    dbList *tmp = NULL;
    //销毁空闲链表
