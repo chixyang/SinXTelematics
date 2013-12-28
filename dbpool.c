@@ -104,6 +104,7 @@ MYSQL* getIdleConn()
   dbIdleList * tmp = dbpool->idlelist;
   dbpool->idlelist = dbpool->idlelist->next;
   tmp->next = NULL;
+  dbpool->idle_size--;
   
   pthread_mutex_unlock (&(dbpool->db_idlelock));
   //节点加入忙碌列表
@@ -131,7 +132,7 @@ int inBusyList(dbBusyList *dbl)
   if(dbpool->busylist == NULL)
   {
      dbpool->busylist = dbl;
-     dbl->next = NULL;
+     dbl->next = NULL;      //这一步很重要，忙碌链表的最后一个元素判定依赖于最后一个节点的next为NULL
      pthread_mutex_unlock (&(dbpool->db_busylock));
      return 0;
   }
@@ -165,7 +166,7 @@ int inIdleList(dbIdleList *dil)
   {
     dbpool->idle_size++;
     dbpool->idlelist = dil;
-    dil->next = NULL;
+    dil->next = NULL;  
     pthread_mutex_unlock (&(dbpool->db_idlelock));
     //唤醒等待程序
     pthread_cond_signal (&(dbpool->dbcond));
@@ -210,7 +211,7 @@ int recycleConn(MYSQL *link)
     if(preNode == NULL)  //该节点为第一个节点，无前一节点
     {
       curNode = dbpool->busylist;
-      dbpool->busylist = NULL;    //删除当前节点，并置为NULL
+      dbpool->busylist = curNode->next;    //删除当前节点
     }
     else
     {
@@ -345,15 +346,16 @@ int dbpool_destroy()
      free(tmp);
    }
    dbpool->idlelist = NULL;
+   dbpool->idlesize = 0;
    
-   //等待忙碌列表程序完成
+   //等待忙碌链表程序完成并使节点自动销毁
    while(dbpool->busylist);
    
    //销毁变量
    pthread_mutex_destroy(&(dbpool->db_idlelock));
    pthread_mutex_destroy(&(dbpool->db_busylock));
    pthread_cond_destroy(&(dbpool->dbcond));
-   dbpool->idlesize = 0;
+
    //释放线程池节点
    free(dbpool);
    dbpool = NULL:
