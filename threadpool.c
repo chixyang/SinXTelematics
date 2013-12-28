@@ -42,50 +42,50 @@ struct ThreadPool
 
 
 //线程池初始化
-int pool_init (int max_thread_num)
+int tdpool_init (int max_thread_num)
 {
-    pool = (threadpool *) malloc (sizeof (threadpool));
+    tdpool = (threadpool *) malloc (sizeof (threadpool));
 
     //静态初始化锁和条件变量
-    pool->queue_lock = PTHREAD_MUTEX_INITIALIZER;
-    pool->queue_ready = PTHREAD_COND_INITIALIZER;
+    tdpool->queue_lock = PTHREAD_MUTEX_INITIALIZER;
+    tdpool->queue_ready = PTHREAD_COND_INITIALIZER;
 
-    pool->queue_head = NULL;
+    tdpool->queue_head = NULL;
 
-    pool->cur_queue_size = 0;
+    tdpool->cur_queue_size = 0;
 
-    pool->shutdown = 0;    //表示线程池正常工作，未被撤销
+    tdpool->shutdown = 0;    //表示线程池正常工作，未被撤销
 
     int bytesize = max_thread_num * sizeof (pthread_t);
-    pool->tid = (pthread_t *) malloc (bytesize);
+    tdpool->tid = (pthread_t *) malloc (bytesize);
     
-    if(pool->tid == NULL) //未分配成功
+    if(tdpool->tid == NULL) //未分配成功
     {
      strerror(errno);
      return -1;
     }
     //初始化
-    memset(pool->tid,0,bytesize);
+    memset(tdpool->tid,0,bytesize);
     
     int i = 0 , err = 0;
     for (; i < max_thread_num; i++)
     { 
-        err = pthread_create (&(pool->tid[i]), NULL, thread_routine,NULL);
+        err = pthread_create (&(tdpool->tid[i]), NULL, thread_routine,NULL);
         if(err != 0) //创建错误
             break;
     }
     
-    pool->max_thread_num = i;   //i为实际创建的线程数目
+    tdpool->max_thread_num = i;   //i为实际创建的线程数目
     
-    return pool->max_thread_num;
+    return tdpool->max_thread_num;
 }
 
 
 /*加入任务到线程池中*/
-int pool_add_task(void *(*process) (void *arg), void *arg)
+int tdpool_add_task(void *(*process) (void *arg), void *arg)
 {
     //判断任务队列是否已经被销毁
-    if(pool->shutdown)
+    if(tdpool->shutdown)
       return -1;
     /*建立一个新任务*/
     threadtask *newtask = (threadtask *) malloc (sizeof (threadtask));
@@ -99,75 +99,75 @@ int pool_add_task(void *(*process) (void *arg), void *arg)
     newtask->next = NULL;
 
     //将任务加到队列中
-    pthread_mutex_lock (&(pool->queue_lock));
+    pthread_mutex_lock (&(tdpool->queue_lock));
     
-    if(pool->queue_head == NULL)  //链表开始为空
-      pool->queue_head = newtask;
+    if(tdpool->queue_head == NULL)  //链表开始为空
+      tdpool->queue_head = newtask;
     else
     {
-      threadtask *member = pool->queue_head; 
+      threadtask *member = tdpool->queue_head; 
       while (member->next != NULL)   //找到最后一个指针的前一个指针
         member = member->next;
       member->next = newtask;
     }
     //检查队列插入是否成功
-    if(pool->queue_head == NULL)
+    if(tdpool->queue_head == NULL)
     {
       perror("线程任务队列出现问题");
       free(newtask);
-      pthread_mutex_unlock (&(pool->queue_lock));
+      pthread_mutex_unlock (&(tdpool->queue_lock));
       return -1;
     }
 
-    pool->cur_queue_size++;
+    tdpool->cur_queue_size++;
     
-    pthread_mutex_unlock (&(pool->queue_lock));
+    pthread_mutex_unlock (&(tdpool->queue_lock));
     /*唤醒至少一个等待线程*/
-    pthread_cond_signal (&(pool->queue_ready));
+    pthread_cond_signal (&(tdpool->queue_ready));
     
     return 0;
 }
 
 
 /*销毁线程池，等待队列中的任务不会再被执行，但是正在运行的线程会一直把任务运行完后再退出*/
-int pool_destroy()
+int tdpool_destroy()
 {
-    if (pool->shutdown)
+    if (tdpool->shutdown)
         return -1;/*已经被销毁，防止再次调用*/
     
     //公共变量的修改都需要加锁
-    pthread_mutex_lock (&(pool->queue_lock));
-    pool->shutdown = 1;
-    pthread_mutex_unlock (&(pool->queue_lock));
+    pthread_mutex_lock (&(tdpool->queue_lock));
+    tdpool->shutdown = 1;
+    pthread_mutex_unlock (&(tdpool->queue_lock));
 
     /*唤醒所有等待线程，线程池要销毁了*/
-    pthread_cond_broadcast (&(pool->queue_ready));
+    pthread_cond_broadcast (&(tdpool->queue_ready));
 
     /*首先销毁等待队列，防止线程释放时其他线程继续执行*/
     threadtask *head = NULL;
-    while (pool->queue_head != NULL)
+    while (tdpool->queue_head != NULL)
     {
-        head = pool->queue_head;
-        pool->queue_head = pool->queue_head->next;
+        head = tdpool->queue_head;
+        tdpool->queue_head = tdpool->queue_head->next;
         free (head);
     }
-    pool->cur_queue_size = 0;
+    tdpool->cur_queue_size = 0;
     
     /*等待所有线程退出*/
     int i;
-    for(i = 0; i < pool->max_thread_num; i++)
-      if(pool->tid[i] != NULL)  //创建线程时可能创建失败，但失败的都被初始化为0，所以失败的不用join
-        pthread_join(pool->tid[i], NULL);
-    free(pool->tid);
-    pool->max_thread_num = 0;
+    for(i = 0; i < tdpool->max_thread_num; i++)
+      if(tdpool->tid[i] != NULL)  //创建线程时可能创建失败，但失败的都被初始化为0，所以失败的不用join
+        pthread_join(tdpool->tid[i], NULL);
+    free(tdpool->tid);
+    tdpool->max_thread_num = 0;
 
     /*条件变量和互斥量也需要销毁*/
-    pthread_mutex_destroy(&(pool->queue_lock));
-    pthread_cond_destroy(&(pool->queue_ready));
+    pthread_mutex_destroy(&(tdpool->queue_lock));
+    pthread_cond_destroy(&(tdpool->queue_ready));
     
     //最后释放整个线程池数据结构
-    free (pool);
-    pool=NULL;
+    free (tdpool);
+    tdpool=NULL;
     
     return 0;
 }
@@ -178,7 +178,7 @@ void *thread_routine(void *arg)
     Debug("starting thread 0x%x\n", pthread_self());
     while (1)
     {
-        pthread_mutex_lock (&(pool->queue_lock));
+        pthread_mutex_lock (&(tdpool->queue_lock));
         /*如果等待队列为0并且不销毁线程池，则处于阻塞状态; pthread_cond_wait是一个原子操作，等待前和等待时会解锁，唤醒后会加锁*/
         
         /*
@@ -189,16 +189,16 @@ void *thread_routine(void *arg)
          * wait上的线程获得锁，如果没有while循环，就直接运行下面代码了，这时如果任务队列size==0，就会出错。
          */
         
-        while(pool->cur_queue_size == 0 && !pool->shutdown)   //任务队列等于0的时候才会wait，否则线程执行队列中的任务
+        while(tdpool->cur_queue_size == 0 && !tdpool->shutdown)   //任务队列等于0的时候才会wait，否则线程执行队列中的任务
         {
             Debug("thread 0x%x is waiting\n",pthread_self());
-            pthread_cond_wait(&(pool->queue_ready), &(pool->queue_lock));
+            pthread_cond_wait(&(tdpool->queue_ready), &(tdpool->queue_lock));
         }
 
         /*线程池销毁,线程退出*/
-        if (pool->shutdown)
+        if (tdpool->shutdown)
         {
-            pthread_mutex_unlock(&(pool->queue_lock));
+            pthread_mutex_unlock(&(tdpool->queue_lock));
             Debug("thread 0x%x will exit\n", pthread_self ());
             pthread_exit(NULL);
         }
@@ -206,17 +206,17 @@ void *thread_routine(void *arg)
         Debug("thread 0x%x is starting to work\n", pthread_self ());
 
         /*判断是否调度出现问题，任务队列是否当前为空，能进来的队列一定不为空*/
-        if((pool->cur_queue_size == 0) || (pool->queue_head == NULL));
+        if((tdpool->cur_queue_size == 0) || (tdpool->queue_head == NULL));
         {
           perror("任务队列为空，调度出现问题！");
           exit(1);  //异常退出，资源都被回收，线程调用会终止进程及其他线程
         }
         
         /*等待队列长度减去1，并取出链表中的头元素*/
-        pool->cur_queue_size--;
-        threadtask *task = pool->queue_head;
-        pool->queue_head = task->next;
-        pthread_mutex_unlock (&(pool->queue_lock));
+        tdpool->cur_queue_size--;
+        threadtask *task = tdpool->queue_head;
+        tdpool->queue_head = task->next;
+        pthread_mutex_unlock (&(tdpool->queue_lock));
 
         /*调用回调函数执行任务*/
         (*(task->process)) (task->arg);
@@ -230,43 +230,43 @@ void *thread_routine(void *arg)
 //给线程池中新加线程，单独子线程而非主线程完成的任务，所以要加锁
 int pool_add_thread(int add_num)
 {
-    pthread_mutex_lock (&(pool->queue_lock));
-    if((pool == NULL) || (pool -> shutdown == 1))  //线程池存在问题
+    pthread_mutex_lock (&(tdpool->queue_lock));
+    if((tdpool == NULL) || (tdpool -> shutdown == 1))  //线程池存在问题
     {
-     pthread_mutex_unlock (&(pool->queue_lock));
+     pthread_mutex_unlock (&(tdpool->queue_lock));
      return -1;
     }
     
     //新建一个大的空间存储原来的线程和添加的线程号
-    int bytesize = (pool->max_thread_num + add_num) * sizeof (pthread_t);
+    int bytesize = (tdpool->max_thread_num + add_num) * sizeof (pthread_t);
     pthread_t *tmp = (pthread_t *) malloc (bytesize);
     if(tmp == NULL)
     {
        strerror(errno);
-       pthread_mutex_unlock (&(pool->queue_lock));
+       pthread_mutex_unlock (&(tdpool->queue_lock));
        return 0;
     }
     //初始化
     memset(tmp,0,bytesize);
     //原来数据复制到当前新区域
-    memcpy(tmp,pool->tid,(pool->max_thread_num * sizeof (pthread_t)));
+    memcpy(tmp,tdpool->tid,(tdpool->max_thread_num * sizeof (pthread_t)));
     //释放原空间并将tid设置为新空间
-    free(pool->tid);
-    pool->tid = tmp;
+    free(tdpool->tid);
+    tdpool->tid = tmp;
     tmp = NULL;
     
     //创建新线程
     int i = 0 , err = 0;
     for (; i < add_num; i++)
     { 
-        err = pthread_create (&(pool->tid[pool->max_thread_num + i]), NULL, thread_routine,NULL);
+        err = pthread_create (&(tdpool->tid[tdpool->max_thread_num + i]), NULL, thread_routine,NULL);
         if(err != 0) //创建错误,不管创建错误后多分配的那部分空间
             break;
     }
     
-    pool->max_thread_num += i;   //i为实际创建的线程数目
+    tdpool->max_thread_num += i;   //i为实际创建的线程数目
     
-    pthread_mutex_unlock (&(pool->queue_lock));
+    pthread_mutex_unlock (&(tdpool->queue_lock));
     
     return i;
 }
