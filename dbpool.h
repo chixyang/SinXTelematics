@@ -19,10 +19,12 @@ static const char* database;
 //数据库池节点
 static struct DBpool *dbpool;
 
+typedef struct DBList dbList;
+
 //忙碌列表类型
-typedef struct DBBusyList dbBusyList;
+typedef dbList dbBusyList;
 //空闲列表类型
-typedef struct DBIdleList dbIdleList;
+typedef dbList dbIdleList;
 
 
 
