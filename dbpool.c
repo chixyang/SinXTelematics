@@ -44,7 +44,7 @@ int dbpool_init(int max_size)
   dbcond = PTHREAD_COND_INITIALIZER;
   
   //先建立1个空闲节点
-  dbpool->idlelist = (struct DBList *)malloc(sizeof(struct DBList));
+  dbpool->idlelist = (dbList *)malloc(sizeof(dbList));
   dbIdleList tmpnode = dbpool->idlelist;
   //建立空闲节点的数据库连接  
   MYSQL *conn=mysql_init((MYSQL *)NULL);
@@ -62,7 +62,7 @@ int dbpool_init(int max_size)
   int i = 1;
   for(;i < max_size;i++)
   {
-    tmpnode->next = (struct DBList *)malloc(sizeof(struct DBList));
+    tmpnode->next = (dbList *)malloc(sizeof(dbList));
     conn = mysql_init((MYSQL *)NULL);
     if(!mysql_real_connect(conn, server, user, password, database, 3306, NULL, 0)) 
     {
