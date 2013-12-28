@@ -44,8 +44,10 @@ int dbpool_init(int max_size)
   dbcond = PTHREAD_COND_INITIALIZER;
   
   //先建立1个空闲节点
-  dbpool->idlelist = (dbList *)malloc(sizeof(dbList));
-  dbIdleList tmpnode = dbpool->idlelist;
+  bytesize = sizeof(dbList);
+  dbpool->idlelist = (dbList *)malloc(bytesize);
+  dbIdleList *tmpnode = dbpool->idlelist;
+  memset(tmpnode,0,bytesize);
   //建立空闲节点的数据库连接  
   MYSQL *conn=mysql_init((MYSQL *)NULL);
   //连接到数据库
@@ -62,7 +64,8 @@ int dbpool_init(int max_size)
   int i = 1;
   for(;i < max_size;i++)
   {
-    tmpnode->next = (dbList *)malloc(sizeof(dbList));
+    tmpnode->next = (dbList *)malloc(bytesize);
+    memset(tmpnode->next,0,bytesize);   //初始化
     conn = mysql_init((MYSQL *)NULL);
     if(!mysql_real_connect(conn, server, user, password, database, 3306, NULL, 0)) 
     {
@@ -93,17 +96,18 @@ MYSQL* getIdleConn()
   //空闲表出现错误
   if(dbpool->idlelist == NULL)
   {
-     pthread_mutex_unlock (&db_idlelock);
+     pthread_mutex_unlock (&(dbpool->db_idlelock));
      perror("dbpool error!");
      return NULL;
   }
-  //有空链接
+  //有空链接,取出第一个节点使用
   dbIdleList * tmp = dbpool->idlelist;
   dbpool->idlelist = dbpool->idlelist->next;
+  tmp->next = NULL;
+  
+  pthread_mutex_unlock (&(dbpool->db_idlelock));
   //节点加入忙碌列表
   inBusyList(tmp);
-  
-  pthread_mutex_unlock (&db_idlelock);
   
   return tmp->db_link;
 }
@@ -128,7 +132,7 @@ int inBusyList(dbBusyList *dbl)
   dbBusyList *tmp = dbpool->busylist->next;
   dbpool->busylist = dbl;
   dbl->next = tmp;
-  /*空闲列表不为空的时候不需要signal*/
+  
   pthread_mutex_unlock (&(dbpool->db_busylock));
   
   return 0;
@@ -165,7 +169,7 @@ int inIdleList(dbIdleList *dil)
   dbpool->idlelist = dil;
   dil->next = tmp;
   dbpool->idle_size++;
-  
+  /*空闲列表不为空的时候不需要signal*/
   pthread_mutex_unlock (&(dbpool->db_idlelock));
   
   return 0;
