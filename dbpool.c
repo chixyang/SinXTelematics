@@ -220,6 +220,19 @@ int getPreNode(dbList *dblist,MYSQL *link,dbList *curNode)
     return 0;
   }
   //比较所有节点的next
+  while(dl->next != NULL)
+  {
+    if(!memcmp(dl->next->db_link,link,bytesize))
+    {
+      curNode = dl;
+      return 0;
+    }
+    dl = dl->next;
+  }
+  
+  //走到这一步说明到最后一个节点了
+  curNode = NULL;
+  return -1;
 }
 
 
