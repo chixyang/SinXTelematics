@@ -31,7 +31,7 @@ struct DBList
 int dbpool_init(int max_size)
 {
   if(max_size == 0)
-    return 0;
+    return -1;
     
   int bytesize = max_size * sizeof(struct DBpool);
   dbpool = (struct DBpool*)malloc(bytesize);  
@@ -112,7 +112,7 @@ MYSQL* getIdleConn()
 int inBusyList(dbBusyList *dbl)
 {
   if(dbl == NULL)
-    return 0;
+    return -1;
     
   pthread_mutex_lock (&(dbpool->db_busylock));
   
@@ -138,7 +138,7 @@ int inBusyList(dbBusyList *dbl)
 int inIdleList(dbIdleList *dil)
 {
   if(dil == NULL)
-    return 0;
+    return -1;
     
   pthread_mutex_lock (&(dbpool->db_idlelock));
   
@@ -175,7 +175,7 @@ int inIdleList(dbIdleList *dil)
 int recycleConn(MYSQL *link)
 {
   if(link == NULL)
-    return 0;
+    return -1;
   
   pthread_mutex_lock (&(dbpool->db_busylock));
   //获得该节点的前一个节点
@@ -206,9 +206,10 @@ int recycleConn(MYSQL *link)
   return 0;
 }
 
-int getPreNode(dbList *dblist,MYSQL *link,dbList *curNode)
+//该函数实现时不用加锁，依赖调用函数加锁
+int getPreNode(dbList *dblist,MYSQL *link,dbList *preNode)
 {
-  if((dblist == NULL) || (link == NULL) || (curNode == NULL))   //不能允许任何一个为空
+  if((dblist == NULL) || (link == NULL) || (preNode == NULL))   //不能允许任何一个为空
     return -1;
   
   //把给定的dblist当做链表的第一个节点
@@ -216,7 +217,7 @@ int getPreNode(dbList *dblist,MYSQL *link,dbList *curNode)
   int bytesize = sizeof(MYSQL);
   if(!memcmp(dl->db_link,link,bytesize)) //link为首节点的
   {
-    curNode = NULL;
+    preNode = NULL;
     return 0;
   }
   //比较所有节点的next
@@ -224,14 +225,14 @@ int getPreNode(dbList *dblist,MYSQL *link,dbList *curNode)
   {
     if(!memcmp(dl->next->db_link,link,bytesize))
     {
-      curNode = dl;
+      preNode = dl;
       return 0;
     }
     dl = dl->next;
   }
   
   //走到这一步说明到最后一个节点了
-  curNode = NULL;
+  preNode = NULL;
   return -1;
 }
 
