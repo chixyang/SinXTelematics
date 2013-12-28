@@ -84,15 +84,16 @@ MYSQL* getIdleConn()
 {
   pthread_mutex_lock (&(dbpool->db_idlelock));
   
-  //判断是否数据库池已经被关闭
+  while((dbpool->idle_size == 0) && (dbpool->db_shutdown != 1))  //数据库池或者空闲列表为空
+     pthread_cond_wait(&(dbpool->dbcond),&(dbpool->db_idlelock));
+  
+    //判断是否数据库池已经被关闭
   if(dbpool->db_shutdown == 1)
   {
     pthread_mutex_unlock (&(dbpool->db_idlelock));
     return NULL;
   }
   
-  while(dbpool->idle_size == 0)  //数据库池或者空闲列表为空
-     pthread_cond_wait(&(dbpool->dbcond),&(dbpool->db_idlelock));
   //空闲表出现错误
   if(dbpool->idlelist == NULL)
   {
