@@ -35,8 +35,8 @@ typedef dbList dbIdleList;
 int dbpool_init(int max_size);
 
 /**
- * 获取空闲sql链接
- * @return 空闲的MYSQL链接
+ * 获取空闲sql链接，若当前无空闲sql链接，则该函数阻塞，等待有的时候再返回
+ * @return 空闲的MYSQL链接,NULL表示出错
  */
 MYSQL* getIdleConn();
 
