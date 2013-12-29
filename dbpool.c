@@ -205,6 +205,8 @@ int recycleConn(MYSQL *link)
   if(tmp != 0)//列表中无该节点
   {
     pthread_mutex_unlock (&(dbpool->db_busylock));
+    //释放该节点
+    
     return -1;
   }
   else //列表中有该节点
@@ -224,6 +226,8 @@ int recycleConn(MYSQL *link)
   //判断是否数据库池已经被关闭
   if(dbpool->db_shutdown == 1)
   {
+    if(dbpool->busylist == NULL)
+        pthread_cond_signal(&(dbpool->dbcond));
     pthread_mutex_unlock (&(dbpool->db_busylock));
     //如果线程池被关闭，则回收的节点直接销毁
     mysql_close(curNode->db_link);
