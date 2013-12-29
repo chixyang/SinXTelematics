@@ -108,8 +108,14 @@ MYSQL* getIdleConn()
   dbpool->idle_size--;
   
   pthread_mutex_unlock (&(dbpool->db_idlelock));
-  //节点加入忙碌列表
-  inBusyList(tmp);
+ 
+  //节点加入忙碌列表,如果没插入成功，则释放该节点资源
+  if(inBusyList(tmp) != 0)
+  {
+    mysql_close(tmp->db_link);
+    free(tmp);
+    return NULL;
+  }
   
   return tmp->db_link;
 }
@@ -205,8 +211,8 @@ int recycleConn(MYSQL *link)
   if(tmp != 0)//列表中无该节点
   {
     pthread_mutex_unlock (&(dbpool->db_busylock));
-    //释放该节点
-    
+    //释放该sql链接
+    mysql_close(link);
     return -1;
   }
   else //列表中有该节点
@@ -223,7 +229,7 @@ int recycleConn(MYSQL *link)
     }
   }
   
-  //判断是否数据库池已经被关闭
+  //判断是否数据库池已经被关闭，这是一个让忙碌链表自动销毁的过程
   if(dbpool->db_shutdown == 1)
   {
     if(dbpool->busylist == NULL)
@@ -237,7 +243,13 @@ int recycleConn(MYSQL *link)
   
   pthread_mutex_unlock (&(dbpool->db_busylock));
   curNode->next = NULL;
-  inIdleList(curNode);
+  //节点加入空闲列表,如果没插入成功，则释放该节点资源
+  if(inIdleList(curNode) != 0)
+  {
+    mysql_close(curNode->db_link);
+    free(curNode);
+    return -1;
+  }
   
   return 0;
 }
