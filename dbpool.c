@@ -352,8 +352,11 @@ int dbpool_destroy()
    dbpool->idlelist = NULL;
    dbpool->idlesize = 0;
    
-   //等待忙碌链表程序完成并使节点自动销毁
-   while(dbpool->busylist);
+   //等待忙碌链表程序完成并使节点自动销毁(最后使用一次dbcond)
+   pthread_mutex_lock (&(dbpool->db_busylock));
+   while(dbpool->busylist)
+      pthread_cond_wait(&(dbpool->dbcond),&(dbpool->db_busylock));
+   pthread_mutex_unlock (&(dbpool->db_busylock));
    
    //销毁变量
    pthread_mutex_destroy(&(dbpool->db_idlelock));
