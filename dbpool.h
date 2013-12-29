@@ -5,6 +5,10 @@
 #ifndef DBPOOL_H
 #define DBPOOL_H
 
+#include <mysql/mysql.h>
+#include <pthread.h>
+#include <errno.h>
+
 #include "debug.h"
 
 //服务器名
