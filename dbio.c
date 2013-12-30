@@ -72,8 +72,63 @@ int db_init(int link_num)
   return 0;
 }
 
-//用户新建账户
+//关闭数据库
+int db_close()
+{
+  dbpool_destory();
+}
 
+// 获取当前系统时间
+char *getCurrentTime()
+{
+	time_t now;
+	struct tm *timenow;
+	time(&now); //获取当前国际标准时间
+        timenow = localtime(&now); //将国际标准时间转换为本地时间
+	return asctime(timenow);
+}
+
+//添加新用户
+int addUser(char *account,char *password,char *license,char *city,unsigned long long phone,unsigned int ip)
+{
+  MYSQL *conn = getIdleConn();
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  if(mysql_query(conn,"set names \'utf8\'"))
+	{
+		perror("set utf8 error");
+		recycleConn(conn);
+		return -1;
+	}
+	//设置查询语句
+	sql_str = (char *)malloc(sizeof(char) * 200);
+	memset(sql_str,0,200);
+	sprintf(sql_str,"insert into UserAccount(account,pwd,license,city,phone,ip) values('%s','%s','%s','%ld','%s','%d')", \
+	         account,password,license,city,phone,ip);
+	//执行插入
+	if(mysql_query(conn,sql_str))
+	{
+		perror("add user error");
+		recycleConn(conn);
+		free(sql_str);
+		return -1;
+	}
+	//判断插入是否成功
+	if((affected_rows = mysql_affected_rows(conn)) < 1)
+	{
+		perror("add new user fail.");
+		recycleConn(conn);
+		free(sql_str);
+		return -1;
+	}
+   
+  //插入成功     
+	recycleConn(conn);
+	free(sql_str);
+	return 0;
+}
 
 
 
