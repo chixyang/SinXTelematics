@@ -165,6 +165,12 @@ int queryUser(char *account, char *pwd)
 	return 0;
 }
 
+//更新用户信息
+int updateUser(int account,char *info,char *type)
+{
+   
+}
+
 
 
 
