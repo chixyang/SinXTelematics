@@ -89,24 +89,19 @@ char *getCurrentTime()
 }
 
 //添加新用户
-int addUser(char *account,char *password,char *license,char *city,unsigned long long phone,unsigned int ip)
+int addUser(char *account,char *pwd,char *license,char *city,unsigned long long phone,unsigned int ip)
 {
   MYSQL *conn = getIdleConn();
   unsigned long affected_rows = 0;   //改变的语句数目
   char *sql_str = NULL;   //sql语句
   
   //设置字符编码为utf8
-  if(mysql_query(conn,"set names \'utf8\'"))
-	{
-		perror("set utf8 error");
-		recycleConn(conn);
-		return -1;
-	}
-	//设置查询语句
+  setUTF8(conn);
+	//设置插入语句
 	sql_str = (char *)malloc(sizeof(char) * 200);
 	memset(sql_str,0,200);
 	sprintf(sql_str,"insert into UserAccount(account,pwd,license,city,phone,ip) values('%s','%s','%s','%ld','%s','%d')", \
-	         account,password,license,city,phone,ip);
+	         account,pwd,license,city,phone,ip);
 	//执行插入
 	if(mysql_query(conn,sql_str))
 	{
@@ -130,7 +125,45 @@ int addUser(char *account,char *password,char *license,char *city,unsigned long 
 	return 0;
 }
 
-
+//查询用户
+int queryUser(char *account, char *pwd)
+{
+	MYSQL *conn = getIdleConn();
+  MYSQL_RES *res;      //查询的result
+  MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  setUTF8(conn);
+  	//设置查询语句
+	sql_str = (char *)malloc(sizeof(char) * 200);
+	memset(sql_str,0,200);
+	sprintf(sql_str,"select * from UserAccount where account = '%s' and pwd = '%s'", \
+	         account,pwd);
+		//执行查询
+	if(mysql_query(conn,sql_str))
+	{
+		perror("query user error");
+		recycleConn(conn);
+		free(sql_str);
+		return -1;
+	}
+	//获取查询结果
+	res = mysql_use_result(conn);
+	//如果查询结果为空
+	if((row = mysql_fetch_row(res)) == NULL)
+  {
+	   mysql_free_result(res);
+	   recycleConn(conn);
+	   free(sql_str);
+	   return -1;
+  }
+  //查到数据
+  mysql_free_result(res);
+	recycleConn(conn);
+	free(sql_str);
+	return 0;
+}
 
 
 
