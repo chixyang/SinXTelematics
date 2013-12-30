@@ -62,6 +62,18 @@ static double getDistance(double lat1,double lng1,double lat2,double lng2)
   return d*(1 + fl*(h1*sf*(1-sg) - h2*(1-sf)*sg));
 }
 
+//打开数据库
+int db_init(int link_num)
+{
+  int ret = dbpool_init(link_num);
+  if(ret <= 0)
+    return -1;
+  
+  return 0;
+}
+
+//用户新建账户
+
 
 
 
