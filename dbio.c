@@ -7,6 +7,17 @@
 //用户属性列表
 UserAttr = {"pwd","license","city","phone"."status","honest","ip"};
 
+//交通事件的信息结构
+struct traffic_event{
+	unsigned long long event_id;
+	double lat;   
+	double lng;
+	char event_type;
+	char *time;
+	char *street;
+	char cancel_type;
+}
+
 //增加用户可信度
 static double honestIncerment(double *honest)
 {
@@ -191,7 +202,7 @@ int updateUser(char *account,void *info,char *type)
 	//执行插入并判断插入是否成功
 	if(mysql_query(conn,sql_str) || ((affected_rows = mysql_affected_rows(conn)) < 1))
 	{
-		perror("add user error");
+		perror("update user error");
 		recycleConn(conn);
 		free(sql_str);
 		return -1;
@@ -225,7 +236,7 @@ unsigned long long addTrafficEvent(char event_type,double lat,double lng,char *s
      ((affected_rows = mysql_affected_rows(conn)) < 1) || \
      (mysql_query(conn,"SELECT LAST_INSERT_ID()")))  //线程安全的
   {
-   perror("add user error");
+   perror("add traffic event error");
    recycleConn(conn);
    free(sql_str);
    return 0ull;
@@ -258,7 +269,7 @@ int updateEventStatus(unsigned long long event_id, double status)
 	//执行更新并判断更新是否成功
 	if(mysql_query(conn,sql_str) || ((affected_rows = mysql_affected_rows(conn)) < 1))
 	{
-		perror("add user error");
+		perror("update event status error");
 		recycleConn(conn);
 		free(sql_str);
 		return -1;
@@ -284,14 +295,14 @@ unsigned long long addDescription(unsigned long long event_id,char *account,char
   //设置插入语句
   sql_str = (char *)malloc(sizeof(char) * 200);
   memset(sql_str,0,200);
-  sprintf(sql_str,"insert into EventDescription(event_id,account,description_type,description) values('ld','%s','%c','%s','%s','%lf')", \
+  sprintf(sql_str,"insert into EventDescription(event_id,account,description_type,description) values('%ld','%s','%c','%s','%s','%lf')", \
 	  event_id,account,description_type,description);
   //执行插入并判断插入是否成功,并且获取当前event_id值的返回,由于在同一个conn里面，所以多线程是安全的
   if((mysql_query(conn,sql_str)) || \
      ((affected_rows = mysql_affected_rows(conn)) < 1) || \
      (mysql_query(conn,"SELECT LAST_INSERT_ID()")))  //线程安全的
   {
-   perror("add user error");
+   perror("add description error");
    recycleConn(conn);
    free(sql_str);
    return 0ull;
@@ -319,13 +330,13 @@ int addEventCancellation(unsigned long long event_id,char *account,char type)
   //设置插入语句
   sql_str = (char *)malloc(sizeof(char) * 200);
   memset(sql_str,0,200);
-  sprintf(sql_str,"insert into EventCancellation(event_id,account,type) values('ld','%s','%c')", \
+  sprintf(sql_str,"insert into EventCancellation(event_id,account,type) values('%ld','%s','%c')", \
 	  event_id,account,type);
   //执行插入并判断插入是否成功
   if((mysql_query(conn,sql_str)) || \
      ((affected_rows = mysql_affected_rows(conn)) < 1))
   {
-   perror("add user error");
+   perror("add event cancellation error");
    recycleConn(conn);
    free(sql_str);
    return -1;
@@ -335,4 +346,43 @@ int addEventCancellation(unsigned long long event_id,char *account,char type)
   free(sql_str);
   return 0;
 }
+
+//添加车队信息,返回车队id
+int addTeam(char num,char status)
+{
+	MYSQL *conn = getIdleConn();
+  MYSQL_RES *res = NULL;
+  MYSQL_ROW row;
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  //设置插入语句
+  sql_str = (char *)malloc(sizeof(char) * 200);
+  memset(sql_str,0,200);
+  sprintf(sql_str,"insert into VehicleTeam(num,status) values('%c','%c')", \
+	  			num,status);
+  //执行插入并判断插入是否成功,并且获取当前event_id值的返回,由于在同一个conn里面，所以多线程是安全的
+  if((mysql_query(conn,sql_str)) || \
+     ((affected_rows = mysql_affected_rows(conn)) < 1) || \
+     (mysql_query(conn,"SELECT LAST_INSERT_ID()")))  //线程安全的
+  {
+   perror("add team error");
+   recycleConn(conn);
+   free(sql_str);
+   return 0;
+  }
+  //查询成功 
+  int ret = 0;
+  res = mysql_use_result(conn);
+  if((row = mysql_fetch_row(res)) != NULL)
+		ret = *((int *)row[0]);
+      
+  recycleConn(conn);
+  free(sql_str);
+  return ret;
+}
+
+//添加车队成员信息
 
