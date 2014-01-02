@@ -191,6 +191,32 @@ int updateUser(char *account,char *info,char *type)
 
 
 //创建交通数据
-int addTrafficEvent()
+int addTrafficEvent(char *event_type,double lat,double lng,char *street,char *city,double status)
+{
+  MYSQL *conn = getIdleConn();
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  setUTF8(conn);
+	//设置插入语句
+  sql_str = (char *)malloc(sizeof(char) * 200);
+  memset(sql_str,0,200);
+  sprintf(sql_str,"insert into TrafficEvent(event_type,lat,lng,street,city,status) values('%s','%lf','%lf','%s','%s','%lf')", \
+	  event_type,lat,lng,street,city,status);
+  //执行插入并判断插入是否成功
+  if(mysql_query(conn,sql_str) || ((affected_rows = mysql_affected_rows(conn)) < 1))
+  {
+   perror("add user error");
+   recycleConn(conn);
+   free(sql_str);
+   return -1;
+  }
+   
+  //插入成功     
+  recycleConn(conn);
+  free(sql_str);
+  return 0;
+}
 
 
