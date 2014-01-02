@@ -4,6 +4,9 @@
 
 #include "dbio.h"
 
+//用户属性列表
+UserAttr = {"pwd","license","city","phone"."status","honest","ip"};
+
 //增加用户可信度
 static double honestIncerment(double *honest)
 {
@@ -187,6 +190,7 @@ int updateUser(char *account,char *info,char *type)
 }
 
 
-
+//创建交通数据
+int addTrafficEvent()
 
 
