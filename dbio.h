@@ -24,7 +24,17 @@
 	                                 }                                      \
 	                          while(0)
  
- 
+ char **UserAttr;   //用户在数据库中的属性
+ //用户属性所对应的枚举数值
+ enum userattr{
+ 	PWD,
+ 	LICENSE,
+ 	CITY,
+ 	PHONE,
+ 	STATUS,
+ 	HONEST,
+ 	IP
+ 	};
  
  #endif
  
