@@ -16,14 +16,20 @@
  #define EARTH_RADIUS 63781370
  
  //设置字符编码为utf8
- #define setUTF8(x)    do{                                               \
-                             if(mysql_query(x,"set names \'utf8\'"))     \
+ #define mysql_setUTF8(x)    do{                                          \
+                              if(mysql_query(x,"set names \'utf8\'"))     \
 	                                 {                                      \
 		                                    perror("set utf8 error");          \
 		                                    recycleConn(x);                    \
 		                                    return -1;                         \
 	                                 }                                      \
-	                          while(0)
+	                           while(0)
+ 
+ //用户登录登出信息
+ enum LogType{
+ 	LOGIN,
+ 	LOGOUT
+ 	}
  
  char **UserAttr;   //用户在数据库中的属性
  //用户属性所对应的枚举数值
@@ -36,6 +42,30 @@
  	HONEST,
  	IP
  	};
+ 	
+ 	//交通事件类型
+ enum EventType{
+ 	ACCIDENT,
+ 	CONGESTION,
+ 	ADMINISTRATION,
+ 	DISASTER,
+ 	OTHERS
+ };
+ 
+ //事件的具体信息描述类型
+ enum DescriptionType{
+ 	NOTHING,
+ 	TEXT,
+ 	IMAGE,
+ 	AUDIO,
+ 	VEDIO
+ };
+ 
+ //事件取消类型
+ enum QuitType{
+ 	RELIEVE,
+ 	FAKENESS
+ };
  
  #endif
  
