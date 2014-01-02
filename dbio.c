@@ -218,7 +218,9 @@ unsigned long long addTrafficEvent(char *event_type,double lat,double lng,char *
   sprintf(sql_str,"insert into TrafficEvent(event_type,lat,lng,street,city,status) values('%s','%lf','%lf','%s','%s','%lf')", \
 	  event_type,lat,lng,street,city,status);
   //执行插入并判断插入是否成功,并且获取当前event_id值的返回,由于在同一个conn里面，所以多线程是安全的
-  if(mysql_query(conn,sql_str) || ((affected_rows = mysql_affected_rows(conn)) < 1) || (mysql_query(conn,"SELECT LAST_INSERT_ID()")))
+  if((mysql_query(conn,sql_str)) || \
+     ((affected_rows = mysql_affected_rows(conn)) < 1) || \
+     (mysql_query(conn,"SELECT LAST_INSERT_ID()")))  //线程安全的
   {
    perror("add user error");
    recycleConn(conn);
