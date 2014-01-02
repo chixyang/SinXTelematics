@@ -7,6 +7,7 @@
  
  #include <math.h>
  #include <string.h>
+ #include "threadpool.h"
  #include "debug.h"
  
  //浮点数运算误差范围内的最小值
