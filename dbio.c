@@ -99,7 +99,7 @@ int addUser(char *account,char *pwd,char *license,char *city,unsigned long long 
   char *sql_str = NULL;   //sql语句
   
   //设置字符编码为utf8
-  setUTF8(conn);
+  mysql_setUTF8(conn);
 	//设置插入语句
 	sql_str = (char *)malloc(sizeof(char) * 200);
 	memset(sql_str,0,200);
@@ -129,7 +129,7 @@ int queryUser(char *account, char *pwd)
   char *sql_str = NULL;   //sql语句
   
   //设置字符编码为utf8
-  setUTF8(conn);
+  mysql_setUTF8(conn);
   	//设置查询语句
 	sql_str = (char *)malloc(sizeof(char) * 200);
 	memset(sql_str,0,200);
@@ -168,7 +168,7 @@ int updateUser(char *account,void *info,char *type)
   char *sql_str = NULL;   //sql语句
   
   //设置字符编码为utf8
-  setUTF8(conn);
+  mysql_setUTF8(conn);
   //设置查询语句
 	sql_str = (char *)malloc(sizeof(char) * 200);
 	memset(sql_str,0,200);
@@ -211,7 +211,7 @@ unsigned long long addTrafficEvent(char *event_type,double lat,double lng,char *
   char *sql_str = NULL;   //sql语句
   
   //设置字符编码为utf8
-  setUTF8(conn);
+  mysql_setUTF8(conn);
 	//设置插入语句
   sql_str = (char *)malloc(sizeof(char) * 200);
   memset(sql_str,0,200);
@@ -246,7 +246,7 @@ int updateEventStatus(unsigned long long event_id, double status)
   char *sql_str = NULL;   //sql语句
   
   //设置字符编码为utf8
-  setUTF8(conn);
+  mysql_setUTF8(conn);
   //设置查询语句
 	sql_str = (char *)malloc(sizeof(char) * 200);
 	memset(sql_str,0,200);
@@ -267,4 +267,6 @@ int updateEventStatus(unsigned long long event_id, double status)
 	return 0;
 }
 
+//创建详细交通数据，返回description_id
+unsigned long long addDescription(unsigned long long event_id,char *account,)
 
