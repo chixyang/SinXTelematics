@@ -385,4 +385,30 @@ int addTeam(char num,char status)
 }
 
 //添加车队成员信息
-
+int addTeamMember(int team_id,char *account)
+{
+	MYSQL *conn = getIdleConn();
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  //设置插入语句
+  sql_str = (char *)malloc(sizeof(char) * 200);
+  memset(sql_str,0,200);
+  sprintf(sql_str,"insert into TeamMember(team_id,account) values('%d','%s')", \
+	  team_id,account);
+  //执行插入并判断插入是否成功
+  if((mysql_query(conn,sql_str)) || \
+     ((affected_rows = mysql_affected_rows(conn)) < 1))
+  {
+   perror("add team member error");
+   recycleConn(conn);
+   free(sql_str);
+   return -1;
+  }
+  //插入成功
+  recycleConn(conn);
+  free(sql_str);
+  return 0;
+}
