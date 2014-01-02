@@ -19,24 +19,24 @@ struct traffic_event{
 }
 
 //增加用户可信度
-static double honestIncerment(double *honest)
+static double honestIncerment(double honest)
 {
-  if(((*honest)-0.5d) < -eps)  //小于0.5
-    return ((*honest) *= 2.0d); 
+  if((honest-0.5d) < -eps)  //小于0.5
+    return (honest *= 2.0d); 
   else  //大于等于0.5
-    return ((*honest) = (*honest)/2.0d + 0.5d);
+    return (honest = honest/2.0d + 0.5d);
 }
 
 //减少用户可信度
-static double honestDecrement(double *honest)
+static double honestDecrement(double honest)
 {
-  return ((*honest) /= 2.0d);
+  return (honest /= 2.0d);
 }
 
 //计算事件可信度,简单的相加
-static double calEventHonest(double *honest1,double *honest2)
+static double calEventHonest(double honest1,double honest2)
 {
-  return ((*honest1) + (*honest2));
+  return (honest1 + honest2);
 }
 
 //角度转化为弧度
