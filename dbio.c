@@ -125,7 +125,7 @@ int queryUser(char *account, char *pwd)
 {
   MYSQL *conn = getIdleConn();
   MYSQL_RES *res;      //查询的result
-  MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW
+  MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW,可看出，mysql查询的返回结果都是char *形式的
   char *sql_str = NULL;   //sql语句
   
   //设置字符编码为utf8
@@ -176,10 +176,10 @@ int updateUser(char *account,void *info,char *type)
 	if(!strcmp(type,UserAttr[PHONE]))   //如果传入的属性值是phone
 		sprintf(sql_str,"update UserAccount set phone = '%ld' where account = '%s'", \
 	          *(unsigned long long *)info,account);
-	if(!strcmp(type,UserAttr[HONEST]))  //传入的属性值是honest
+	else if(!strcmp(type,UserAttr[HONEST]))  //传入的属性值是honest
 	  sprintf(sql_str,"update UserAccount set honest = '%lf' where account = '%s'", \
 	          *(double *)info,account);
-	if(!strcmp(type,UserAttr[IP]))      //传入的属性值是ip
+	else if(!strcmp(type,UserAttr[IP]))      //传入的属性值是ip
 	  sprintf(sql_str,"update UserAccount set ip = '%d' where account = '%s'", \
 	          *(int *)info,account);
 	else   //其他传入的属性值，pwd，license，city，status
@@ -201,10 +201,12 @@ int updateUser(char *account,void *info,char *type)
 }
 
 
-//创建交通数据
-int addTrafficEvent(char *event_type,double lat,double lng,char *street,char *city,double status)
+//创建交通数据，返回event_id
+unsigned long long addTrafficEvent(char *event_type,double lat,double lng,char *street,char *city,double status)
 {
   MYSQL *conn = getIdleConn();
+  MYSQL_RES *res = NULL;
+  MYSQL_ROW row;
   unsigned long affected_rows = 0;   //改变的语句数目
   char *sql_str = NULL;   //sql语句
   
@@ -215,19 +217,52 @@ int addTrafficEvent(char *event_type,double lat,double lng,char *street,char *ci
   memset(sql_str,0,200);
   sprintf(sql_str,"insert into TrafficEvent(event_type,lat,lng,street,city,status) values('%s','%lf','%lf','%s','%s','%lf')", \
 	  event_type,lat,lng,street,city,status);
-  //执行插入并判断插入是否成功
-  if(mysql_query(conn,sql_str) || ((affected_rows = mysql_affected_rows(conn)) < 1))
+  //执行插入并判断插入是否成功,并且获取当前event_id值的返回,由于在同一个conn里面，所以多线程是安全的
+  if(mysql_query(conn,sql_str) || ((affected_rows = mysql_affected_rows(conn)) < 1) || (mysql_query(conn,"SELECT LAST_INSERT_ID()")))
   {
    perror("add user error");
    recycleConn(conn);
    free(sql_str);
-   return -1;
+   return 0ull;
   }
-   
-  //插入成功     
+  //查询成功 
+  unsigned long long ret = 0ull;
+  res = mysql_use_result(conn);
+  if((row = mysql_fetch_row(res)) != NULL)
+		ret = *((unsigned long long *)row[0]);
+      
   recycleConn(conn);
   free(sql_str);
-  return 0;
+  return ret;
+}
+
+//更新事件的状态
+int updateEventStatus(unsigned long long event_id, double status)
+{
+  MYSQL *conn = getIdleConn();
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  setUTF8(conn);
+  //设置查询语句
+	sql_str = (char *)malloc(sizeof(char) * 200);
+	memset(sql_str,0,200);
+	sprintf(sql_str,"update TrafficEvent set status = '%lf' where event_id = '%ld'", \
+	         status,event_id);
+	//执行更新并判断更新是否成功
+	if(mysql_query(conn,sql_str) || ((affected_rows = mysql_affected_rows(conn)) < 1))
+	{
+		perror("add user error");
+		recycleConn(conn);
+		free(sql_str);
+		return -1;
+	}
+   
+  //插入成功     
+	recycleConn(conn);
+	free(sql_str);
+	return 0;
 }
 
 
