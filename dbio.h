@@ -29,7 +29,7 @@
  enum LogType{
  	LOGIN,
  	LOGOUT
- 	}
+ 	};
  
  char **UserAttr;   //用户在数据库中的属性
  //用户属性所对应的枚举数值
