@@ -67,5 +67,8 @@
  	FAKENESS
  };
  
+ //交通事件结构
+ typedef struct traffic_event TrafficEvent;
+ 
  #endif
  
