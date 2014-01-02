@@ -182,6 +182,9 @@ int updateUser(char *account,void *info,char *type)
 	else if(!strcmp(type,UserAttr[IP]))      //传入的属性值是ip
 	  sprintf(sql_str,"update UserAccount set ip = '%d' where account = '%s'", \
 	          *(int *)info,account);
+	else if(!strcmp(type,UserAttr[STATUS]))      //传入的属性值是ip
+	  sprintf(sql_str,"update UserAccount set status = '%c' where account = '%s'", \
+	          *(char *)info,account);
 	else   //其他传入的属性值，pwd，license，city，status
 		sprintf(sql_str,"update UserAccount set '%s' = '%s' where account = '%s'", \
 	         type,(char *)info,account);
@@ -202,7 +205,7 @@ int updateUser(char *account,void *info,char *type)
 
 
 //创建交通数据，返回event_id
-unsigned long long addTrafficEvent(char *event_type,double lat,double lng,char *street,char *city,double status)
+unsigned long long addTrafficEvent(char event_type,double lat,double lng,char *street,char *city,double status)
 {
   MYSQL *conn = getIdleConn();
   MYSQL_RES *res = NULL;
@@ -215,7 +218,7 @@ unsigned long long addTrafficEvent(char *event_type,double lat,double lng,char *
 	//设置插入语句
   sql_str = (char *)malloc(sizeof(char) * 200);
   memset(sql_str,0,200);
-  sprintf(sql_str,"insert into TrafficEvent(event_type,lat,lng,street,city,status) values('%s','%lf','%lf','%s','%s','%lf')", \
+  sprintf(sql_str,"insert into TrafficEvent(event_type,lat,lng,street,city,status) values('%c','%lf','%lf','%s','%s','%lf')", \
 	  event_type,lat,lng,street,city,status);
   //执行插入并判断插入是否成功,并且获取当前event_id值的返回,由于在同一个conn里面，所以多线程是安全的
   if((mysql_query(conn,sql_str)) || \
@@ -268,5 +271,37 @@ int updateEventStatus(unsigned long long event_id, double status)
 }
 
 //创建详细交通数据，返回description_id
-unsigned long long addDescription(unsigned long long event_id,char *account,)
+unsigned long long addDescription(unsigned long long event_id,char *account,char description_type,char *description)
+{
+	MYSQL *conn = getIdleConn();
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  //设置插入语句
+  sql_str = (char *)malloc(sizeof(char) * 200);
+  memset(sql_str,0,200);
+  sprintf(sql_str,"insert into EventDescription(event_id,account,description_type,description) values('ld','%s','%c','%s','%s','%lf')", \
+	  event_id,account,description_type,description);
+  //执行插入并判断插入是否成功,并且获取当前event_id值的返回,由于在同一个conn里面，所以多线程是安全的
+  if((mysql_query(conn,sql_str)) || \
+     ((affected_rows = mysql_affected_rows(conn)) < 1) || \
+     (mysql_query(conn,"SELECT LAST_INSERT_ID()")))  //线程安全的
+  {
+   perror("add user error");
+   recycleConn(conn);
+   free(sql_str);
+   return 0ull;
+  }
+  //查询成功 
+  unsigned long long ret = 0ull;
+  res = mysql_use_result(conn);
+  if((row = mysql_fetch_row(res)) != NULL)
+		ret = *((unsigned long long *)row[0]);
+      
+  recycleConn(conn);
+  free(sql_str);
+  return ret;
+}
 
