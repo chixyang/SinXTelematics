@@ -11,7 +11,7 @@ create table UserAccount
 	license char(6),              //车牌的汉字可通过city判断
 	city	varchar(15) not null,    //汉字在utf8编码中占据三个字节
 	phone	bigint not null,
-	status	char(1) not null enum('i','o') default 'i',  //i: login 表示录入，o：logout 表示录出，当用户注册的时候处于登录状态
+	status	tinyint not null default 1,  //1: login 表示录入，0：logout 表示录出，当用户注册的时候处于登录状态
 	honest	double not null default 0.5,     //所有人默认新注册时都是0.5
 	ip	int unsigned not null            //直接存储大端法的网络地址
 )engine=InnoDB default charset=utf8;
@@ -20,7 +20,7 @@ create table UserAccount
 create table TrafficEvent
 (
 	event_id bigint auto_increment primary key,
-	event_type varchar(15) enum('accident','congestion','administration','disaster','others') not null,  //五类事件
+	event_type tinyint not null,  //'accident','congestion','administration','disaster','others'五类事件
 	time	timestamp(14) default current_timestamp,     //新建记录的时候该值设置为当前时间戳
 	lat	double(15,12) not null,  //小数点前3位，小数点后12位
 	lng	double(15,12) not null,
@@ -38,7 +38,7 @@ create table EventDescription
 	description_id bigint auto_increment primary key,
 	event_id bigint not null,
 	account varchar(20) not null,
-	description_type varchar(5) enum('text','image','audio','vedio') not null,
+	description_type tinyint not null,  //'nothing','text','image','audio','vedio'五种类型
 	description varchar(100) not null, //50个字或者图片，音频，视频的绝对地址
 	//外键约束
 	foreign key (event_id) references TrafficEvent(event_id),
@@ -54,7 +54,7 @@ create table EventCancellation
 	event_id bigint not null,
 	account varchar(20) not null,
 	time timestamp(14) default current_timestamp,
-	type char(1) enum('r','f'),   //r : relieve,事件已解除 or f: fakeness,虚假信息
+	type tinyint not null,   //0: relieve,事件已解除 or 1: fakeness,虚假信息
 	//主键，外键
 	primary key (event_id,account),
 	foreign key (event_id) references TrafficEvent(event_id),
