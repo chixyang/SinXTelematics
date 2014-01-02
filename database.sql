@@ -22,8 +22,8 @@ create table TrafficEvent
 	event_id bigint auto_increment primary key,
 	event_type varchar(15) enum('accident','congestion','administration','disaster','others') not null,  //五类事件
 	time	timestamp(14) default current_timestamp,     //新建记录的时候该值设置为当前时间戳
-	lat	decimal(15,12) not null,  //小数点前3位，小数点后12位
-	lng	decimal(15,12) not null,
+	lat	double(15,12) not null,  //小数点前3位，小数点后12位
+	lng	double(15,12) not null,
 	street	varchar(30) not null,
 	city	varchar(15)	not null,
 	status	double	not null
