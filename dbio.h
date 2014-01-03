@@ -7,6 +7,7 @@
  
  #include <math.h>
  #include <string.h>
+ #include <stdlib.h>
  #include "threadpool.h"
  #include "debug.h"
  
