@@ -130,6 +130,14 @@
  int addUser(char *account,char *pwd,char *license,char *city,unsigned long long phone,unsigned int ip);
  
  /**
+  * 获取用户信息：city，ip，status
+  * @param account 用户账户
+  * @param type 所获取的信息类型：CITY，IP，STATUS
+  * @return NULL 获取失败，其他：获取成功
+  */
+ char* getUserInfo(char *account,char type);
+ 
+ /**
   * 查询用户是否存在
   * @param account 用户账户
   * @param pwd 用户密码
@@ -141,10 +149,10 @@
   * 更新用户信息
   * @param account 用户账户
   * @param info 要改为的信息
-  * @param type 要更改的属性，如UserAttr[IP];
+  * @param type 要更改的属性，如IP，PWD等
   * @return 0：表示更改成功，其他：失败
   */
- int updateUser(char *account,void *info,char *type);
+ int updateUser(char *account,void *info,char type);
  
  /**
   * 添加交通事件
