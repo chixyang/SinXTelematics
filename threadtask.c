@@ -32,12 +32,15 @@ int team_init()
 Vehicle* addVehicles(Vehicle *head,char *account)
 {
 	//获取ip
-	int ip = getUserIP(account);
-	if(ip == 0)
+	char* ipstr = getUserInfo(account,IP);
+	if(ipstr == NULL)
 	{
 		perror("add Vehicles error");
 		return NULL;
 	}
+	//字符串转换为ip
+	int ip = atoi(ipstr);
+	free(ipstr); //需要释放空间
 			//新建结点并设置
 	Vehicle *vhc = (Vehicle *)malloc(sizeof(Vehicle));
 	memset(vhc,0,sizeof(Vehicle));
