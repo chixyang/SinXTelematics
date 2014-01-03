@@ -5,6 +5,7 @@
 #ifndef THREADTASK_H
 #define THREADTASK_H
 
+#include <stdlib.h>
 #include "debug.h"
 
 //车队结构体
