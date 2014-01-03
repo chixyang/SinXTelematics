@@ -1,4 +1,3 @@
-
 /**
  * 线程任务函数实现文件
  */
@@ -6,6 +5,7 @@
 
 //车队临时结构体
 struct team{
+	int listID;
 	char req_num;  //所请求的车数（总车数）
 	char res_num;  //所回复确认加入的车数
 	char timer; //当前剩余存在时间
@@ -24,5 +24,6 @@ struct vehicle{
 //初始化汽车列表结构体
 int team_init()
 {
-	
+	//初始时车队列表为空
+	TeamList = NULL;
 }
