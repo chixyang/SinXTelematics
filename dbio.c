@@ -131,6 +131,55 @@ int addUser(char *account,char *pwd,char *license,char *city,unsigned long long 
 	return 0;
 }
 
+//获取用户city或者ip或者status
+char* getUserInfo(char *account,char type)
+{
+		/*判断type是否越界*/
+	if((type < PWD) || (type > IP))
+		return NULL;
+		
+	MYSQL *conn = getIdleConn();
+  MYSQL_RES *res;      //查询的result
+  MYSQL_ROW row;
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  //设置查询语句
+	sql_str = (char *)malloc(sizeof(char) * 200);
+	memset(sql_str,0,200);
+	sprintf(sql_str,"select %s from UserAccount where account = '%s'",UserAttr[type],account);
+	//执行查询
+	if(mysql_query(conn,sql_str))
+	{
+		perror("query user info error");
+		recycleConn(conn);
+		free(sql_str);
+		return NULL;
+	}
+	//获取查询结果
+	res = mysql_use_result(conn);
+	//如果查询结果不为空
+	if((row = mysql_fetch_row(res)) != NULL)
+  {
+  	int len = strlen(row[0]);
+  	char *info = (char *)malloc(len + 1); //加上结束位
+  	memcpy(info,row[0],len);
+  	info[len + 1] = '\0'; //加上结束位
+  	//释放资源
+	  mysql_free_result(res);
+	  recycleConn(conn);
+	  free(sql_str);
+	  return info;
+  }
+  //未查到数据
+  mysql_free_result(res);
+	recycleConn(conn);
+	free(sql_str);
+	return NULL;
+}
+
+
 //查询用户
 int queryUser(char *account, char *pwd)
 {
@@ -172,8 +221,11 @@ int queryUser(char *account, char *pwd)
 }
 
 //更新用户信息
-int updateUser(char *account,void *info,char *type)
+int updateUser(char *account,void *info,char type)
 {
+			/*判断type是否越界*/
+	if((type < PWD) || (type > IP))
+		return -1;
   MYSQL *conn = getIdleConn();
   unsigned long affected_rows = 0;   //改变的语句数目
   char *sql_str = NULL;   //sql语句
@@ -184,21 +236,28 @@ int updateUser(char *account,void *info,char *type)
 	sql_str = (char *)malloc(sizeof(char) * 200);
 	memset(sql_str,0,200);
 	
-	if(!strcmp(type,UserAttr[PHONE]))   //如果传入的属性值是phone
+	switch(type)
+	{
+	case PHONE:  //如果传入的属性值是phone
 		sprintf(sql_str,"update UserAccount set phone = '%ld' where account = '%s'", \
 	          *(unsigned long long *)info,account);
-	else if(!strcmp(type,UserAttr[HONEST]))  //传入的属性值是honest
+	  break;
+	case HONEST:  //传入的属性值是honest
 	  sprintf(sql_str,"update UserAccount set honest = '%lf' where account = '%s'", \
 	          *(double *)info,account);
-	else if(!strcmp(type,UserAttr[IP]))      //传入的属性值是ip
+	  break;
+	case IP:      //传入的属性值是ip
 	  sprintf(sql_str,"update UserAccount set ip = '%d' where account = '%s'", \
 	          *(int *)info,account);
-	else if(!strcmp(type,UserAttr[STATUS]))      //传入的属性值是ip
+	  break;
+	case STATUS:      //传入的属性值是ip
 	  sprintf(sql_str,"update UserAccount set status = '%c' where account = '%s'", \
 	          *(char *)info,account);
-	else   //其他传入的属性值，pwd，license，city，status
+	  break;
+	default:   //其他传入的属性值，pwd，license，city，status
 		sprintf(sql_str,"update UserAccount set '%s' = '%s' where account = '%s'", \
 	         type,(char *)info,account);
+	}
 	//执行插入并判断插入是否成功
 	if(mysql_query(conn,sql_str) || ((affected_rows = mysql_affected_rows(conn)) < 1))
 	{
@@ -245,7 +304,7 @@ unsigned long long addTrafficEvent(char event_type,double lat,double lng,char *s
   unsigned long long ret = 0ull;
   res = mysql_use_result(conn);
   if((row = mysql_fetch_row(res)) != NULL)
-		ret = *((unsigned long long *)row[0]);
+		ret = atoll(row[0]); //转换为长整型
       
   recycleConn(conn);
   free(sql_str);
@@ -311,7 +370,7 @@ unsigned long long addDescription(unsigned long long event_id,char *account,char
   unsigned long long ret = 0ull;
   res = mysql_use_result(conn);
   if((row = mysql_fetch_row(res)) != NULL)
-		ret = *((unsigned long long *)row[0]);
+		ret = atoll(row[0]);  //转换为长整型
       
   recycleConn(conn);
   free(sql_str);
@@ -377,7 +436,7 @@ int addTeam(char num,char status)
   int ret = 0;
   res = mysql_use_result(conn);
   if((row = mysql_fetch_row(res)) != NULL)
-		ret = *((int *)row[0]);
+		ret = atoi(row[0]);  //转换为整型
       
   recycleConn(conn);
   free(sql_str);
