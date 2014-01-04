@@ -471,3 +471,101 @@ int addTeamMember(int team_id,char *account)
   free(sql_str);
   return 0;
 }
+
+//删除车队成员
+int delTeamMember(int team_id,char *account)
+{
+	/**首先删除team member**/
+	MYSQL *conn = getIdleConn();
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  //设置删除语句
+  sql_str = (char *)malloc(sizeof(char) * 200);
+  memset(sql_str,0,200);
+  sprintf(sql_str,"delete from TeamMember where team_id = '%d' and account = '%s'", \
+	  team_id,account);
+  //执行删除并判断删除是否成功
+  if((mysql_query(conn,sql_str)) || \
+     ((affected_rows = mysql_affected_rows(conn)) < 1))
+  {
+   perror("add team member error");
+   recycleConn(conn);
+   free(sql_str);
+   return -1;
+  }
+	recycleConn(conn);
+	free(sql_str);
+	return 0;
+}
+
+//获取车队中汽车数目
+char getTeamNum(int team_id)
+{
+	MYSQL *conn = getIdleConn();
+  MYSQL_RES *res;      //查询的result
+  MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW,可看出，mysql查询的返回结果都是char *形式的
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  	//设置查询语句
+	sql_str = (char *)malloc(sizeof(char) * 200);
+	memset(sql_str,0,200);
+	sprintf(sql_str,"select num from VehicleTeam where team_id = '%d'", \
+	         team_id);
+		//执行查询
+	if(mysql_query(conn,sql_str))
+	{
+		perror("select num error");
+		recycleConn(conn);
+		free(sql_str);
+		return 0;
+	}
+	//获取查询结果
+	res = mysql_use_result(conn);
+	//如果查询结果不为为空
+	if((row = mysql_fetch_row(res)) != NULL)
+  {
+  	 char num = *(char *)row[0];  //本来就是char类型的
+	   mysql_free_result(res);
+	   recycleConn(conn);
+	   free(sql_str);
+	   return num;
+  }
+  //未查到数据
+  mysql_free_result(res);
+	recycleConn(conn);
+	free(sql_str);
+	return 0;
+}
+
+//删除车队
+int delTeam(int team_id)
+{
+	MYSQL *conn = getIdleConn();
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  //设置删除语句
+  sql_str = (char *)malloc(sizeof(char) * 200);
+  memset(sql_str,0,200);
+  sprintf(sql_str,"delete from VehicleTeam where team_id = '%d'", \
+	  team_id);
+  //执行删除并判断删除是否成功
+  if((mysql_query(conn,sql_str)) || \
+     ((affected_rows = mysql_affected_rows(conn)) < 1))
+  {
+   perror("add team member error");
+   recycleConn(conn);
+   free(sql_str);
+   return -1;
+  }
+	recycleConn(conn);
+	free(sql_str);
+	return 0;
+}
