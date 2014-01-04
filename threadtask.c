@@ -104,7 +104,10 @@ int addTeamList(char req_num,Vehicle *vehicles)
 }
 
 //修改res_num和Vehicle链表项
-int 
+int setVehicleLabel(int team_id,char *account)
+{
+	
+}
 
 //删除teamlist的一个结点并加入数据库
 
