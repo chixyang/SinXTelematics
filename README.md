@@ -1,4 +1,4 @@
 SinXTelematics
 ==============
 
-云计算比赛项目，车联网相关，交通信息的wiki发布与汽车组队功能
+实时交通信息的wiki发布与汽车、行人组队功能，组队又分为peer2peer组队和peer2center组队
