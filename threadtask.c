@@ -125,11 +125,23 @@ int setVehicleLabel(int team_id,char *account)
 		pthread_mutex_unlock(&id_lock);
 		return -1;
 	}
-	//查询到了
-	if(vt->label == 0)
-		
+	//查询到了team,释放team锁
+	pthread_mutex_unlock(&id_lock);
 	
+	//vehicle列表的操作不需要加锁
+	Vehicle *vh = vt->VehicleList;
+	while(vh && (strcmp(vh->account,account)))
+		vh = vh->next;
+	if(vh == NULL)  //未找到
+		return -1;
+	//找到了,加锁保护label和res_num
+	pthread_mutex_lock(&res_lock);
+	if(vh->label == 0)  //判断一下，以防重复响应
+		res_num++;
+	pthread_mutex_unlock(&res_lock);
 	
+	vh->label = 1; //最终label都有设为1
+	return 0;
 }
 
 //删除teamlist的一个结点并加入数据库
