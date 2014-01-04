@@ -3,12 +3,19 @@
  */
 #include "threadtask.h"
 
+//车队编号,从1开始
+int teamID;
+
+//车队id访问锁
+pthread_mutex_t id_lock;
+
 //车队临时结构体
 struct team{
-	int listID;
+	int id;
+	pthread_mutex_t res_lock;  //修改res_num时需要加锁
 	char req_num;  //所请求的车数（总车数）
 	char res_num;  //所回复确认加入的车数
-	char timer; //当前剩余存在时间
+	char timer; //当前剩余存在时间，最开始默认3分钟
 	struct vehicle *VehicleList;  //车队成员
 	struct team *next;
 };
@@ -22,10 +29,12 @@ struct vehicle{
 };
 
 //初始化汽车列表结构体
-int team_init()
+int team_list_init()
 {
 	//初始时车队列表为空
 	TeamList = NULL;
+	teamID = 0;
+	id_lock = PTHREAD_MUTEX_INITIALIZER;
 }
 
 //添加新车队列表
@@ -61,4 +70,7 @@ Vehicle* addVehicles(Vehicle *head,char *account)
 	return head;
 }
 //添加新项到结构体中
-int addTeamList()
+int addTeamList(char req_num,Vehicle *vehicles)
+{
+	
+}
