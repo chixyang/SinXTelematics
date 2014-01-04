@@ -91,6 +91,7 @@ int addTeamList(char req_num,Vehicle *vehicles)
 	if(TeamList == NULL)
 	{
 		TeamList = vt;
+		pthread_mutex_unlock(&id_lock);
 		return 0;
 	}
 	//TeamList不为空
@@ -106,6 +107,28 @@ int addTeamList(char req_num,Vehicle *vehicles)
 //修改res_num和Vehicle链表项
 int setVehicleLabel(int team_id,char *account)
 {
+	if((team_id == 0) || (account == NULL))
+		return -1;
+		
+	VehicleTeam *vt = TeamList;
+	//查询列表
+	pthread_mutex_lock(&id_lock);
+	while(vt)
+	{
+		if(vt->id == team_id)
+			break;
+		vt = vt->next;
+	}
+	//如果未查询到
+	if(vt == NULL)
+	{
+		pthread_mutex_unlock(&id_lock);
+		return -1;
+	}
+	//查询到了
+	if(vt->label == 0)
+		
+	
 	
 }
 
