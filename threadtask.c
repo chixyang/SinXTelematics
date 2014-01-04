@@ -37,6 +37,14 @@ int team_list_init()
 	id_lock = PTHREAD_MUTEX_INITIALIZER;
 }
 
+//释放汽车节点
+int freeVehicleNode(Vehicle *vh)
+{
+	free(vh->account);
+	free(vh);
+	return 0;
+}
+
 //添加新车队列表,Vehicle链表的创建是由单线程完成的，所以不用使用锁，不用担心安全性
 Vehicle* addVehicles(Vehicle *head,char *account)
 {
@@ -53,7 +61,10 @@ Vehicle* addVehicles(Vehicle *head,char *account)
 			//新建结点并设置
 	Vehicle *vhc = (Vehicle *)malloc(sizeof(Vehicle));
 	memset(vhc,0,sizeof(Vehicle));
-	vhc->account = account;
+	//给account分配空间
+	int bytesize = strlen(account) + 1;
+	vhc->account = (char *)malloc(bytesize);
+	memcpy(vhc->account,account,bytesize);  //把最后的\0也复制了
 	vhc->ip = ip;
 	vhc->label = 0;
 	//判断是否所需添加节点将作为头结点
@@ -110,9 +121,9 @@ int setVehicleLabel(int team_id,char *account)
 	if((team_id == 0) || (account == NULL))
 		return -1;
 		
-	VehicleTeam *vt = TeamList;
 	//查询列表
 	pthread_mutex_lock(&id_lock);
+	VehicleTeam *vt = TeamList;
 	while(vt)
 	{
 		if(vt->id == team_id)
@@ -144,6 +155,44 @@ int setVehicleLabel(int team_id,char *account)
 	return 0;
 }
 
-//删除teamlist的一个结点并加入数据库
+//删除teamlist的一个结点并加入数据库,参数表示要删除节点的前一个节点
+int teamInDB(VehicleTeam *preVT)
+{
+	VehicleTeam *vt;
+	if(preVT == NULL) //前一个节点为NULL，表示该节点为第一个节点
+	{
+		//删除头结点
+		pthread_mutex_lock(&id_lock);
+		vt = TeamList;
+		TeamList = TeamList->next;
+		pthread_mutex_unlock(&id_lock);
+	}
+	else 
+	{
+		pthread_mutex_lock(&id_lock);
+		vt = preVT->next;
+		preVT->next = vt->next;
+		pthread_mutex_unlock(&id_lock);
+	}
+	//将头结点数据加入数据库中
+	int team_id = addTeam(vt->res_num,1);
+	if(team_id <= 0)  //添加失败
+		return -1;
+	//添加车队成员表,该节点已从列表上删除，不需要加锁了
+	Vehicle *vh = vt->VehicleList,tmp = NULL;
+	while(vh)
+	{
+		if(vh->label == 1) //确认加入车队的车辆
+			addTeamMember(team_id,vh->account);
+		//删除该节点
+		tmp = vh;
+		vh = vh->next;
+		freeVehicleNode(tmp);
+	}
+	//释放车队节点
+	pthread_mutex_destory(vt->res_lock);
+	free(vt);
+	return 0;
+}
 
 //删除整个teamlist结构
