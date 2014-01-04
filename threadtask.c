@@ -37,7 +37,7 @@ int team_list_init()
 	id_lock = PTHREAD_MUTEX_INITIALIZER;
 }
 
-//添加新车队列表
+//添加新车队列表,Vehicle链表的创建是由单线程完成的，所以不用使用锁，不用担心安全性
 Vehicle* addVehicles(Vehicle *head,char *account)
 {
 	//获取ip
@@ -72,5 +72,40 @@ Vehicle* addVehicles(Vehicle *head,char *account)
 //添加新项到结构体中
 int addTeamList(char req_num,Vehicle *vehicles)
 {
+	if((req_num == 0) || (vehicles == NULL))
+		return -1;
 	
+	VehicleTeam *vt = (VehicleTeam *)malloc(sizeof(VehicleTeam)); //新建一个结点
+	memset(vt,0,sizeof(VehicleTeam));	
+	//初始化结点各属性信息
+	vt->res_lock = PTHREAD_MUTEX_INITIALIZER;
+	vt->req_num = req_num;
+	vt->timer = 3; //表示存活时间为三分钟
+	
+	pthread_mutex_lock(&id_lock);
+	//设置id号
+	vt->id = teamID % MAX_LIST_NUM + 1;   //保证在1-10000之间
+	/*其他属性都为0*/
+	
+	//TeamList是否为空
+	if(TeamList == NULL)
+	{
+		TeamList = vt;
+		return 0;
+	}
+	//TeamList不为空
+	VehicleTeam *tmp = TeamList;
+	while(tmp->next)
+		tmp = tmp->next;
+	tmp->next = vt;
+	pthread_mutex_unlock(&id_lock);
+	
+	return 0;
 }
+
+//修改res_num和Vehicle链表项
+int 
+
+//删除teamlist的一个结点并加入数据库
+
+//删除整个teamlist结构
