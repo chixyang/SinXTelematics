@@ -209,7 +209,27 @@
   */
  int addTeamMember(int team_id,char *account);
  
+ /**
+  * 删除车队成员记录
+  * @param team_id 车队编号
+  * @param account 用户账户
+  * @return 0：表示删除成功，其他：表示删除失败
+  */
+ int delTeamMember(int team_id,char *account);
  
+ /**
+  * 获取车队中汽车数目
+  * @param team_id 车队编号
+  * @return 车辆数目，0表示错误
+  */
+ char getTeamNum(int team_id);
+ 
+ /**
+  * 删除车队
+  * @param team_id 车队编号
+  * @return 0:表示删除成功，其他表示删除失败
+  */
+ int delTeam(int team_id);
  
  
  
