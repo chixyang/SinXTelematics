@@ -491,7 +491,7 @@ int delTeamMember(int team_id,char *account)
   if((mysql_query(conn,sql_str)) || \
      ((affected_rows = mysql_affected_rows(conn)) < 1))
   {
-   perror("add team member error");
+   perror("delete team member error");
    recycleConn(conn);
    free(sql_str);
    return -1;
@@ -560,7 +560,7 @@ int delTeam(int team_id)
   if((mysql_query(conn,sql_str)) || \
      ((affected_rows = mysql_affected_rows(conn)) < 1))
   {
-   perror("add team member error");
+   perror("delete team error");
    recycleConn(conn);
    free(sql_str);
    return -1;
