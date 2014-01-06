@@ -569,3 +569,44 @@ int delTeam(int team_id)
 	free(sql_str);
 	return 0;
 }
+
+//判断某个用户是否是一个车队的
+int queryTeamMember(int team_id,char *account)
+{
+	MYSQL *conn = getIdleConn();
+  MYSQL_RES *res;      //查询的result
+  MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW,可看出，mysql查询的返回结果都是char *形式的
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  	//设置查询语句
+	sql_str = (char *)malloc(sizeof(char) * 200);
+	memset(sql_str,0,200);
+	sprintf(sql_str,"select * from TeamMember where team_id = '%d' and account = '%s'", \
+	         team_id,account);
+		//执行查询
+	if(mysql_query(conn,sql_str))
+	{
+		perror("query team member error");
+		recycleConn(conn);
+		free(sql_str);
+		return -1;
+	}
+	//获取查询结果
+	res = mysql_use_result(conn);
+	//如果查询结果为空
+	if((row = mysql_fetch_row(res)) == NULL)
+  {
+	   mysql_free_result(res);
+	   recycleConn(conn);
+	   free(sql_str);
+	   return -1;
+  }
+  //查到数据
+  mysql_free_result(res);
+	recycleConn(conn);
+	free(sql_str);
+	return 0;
+}
+
