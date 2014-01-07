@@ -342,12 +342,18 @@ int getTrafficEvent(unsigned long long event_id,TrafficEvent *te)
 	/**++++++++++++++++++++++++++++++++++++++此处代码需要修改，有错误++++++++++++++++++++++++++++++++++++++++**/
 	if((row = mysql_fetch_row(res)) != NULL)
   {
-  	 char num = *(char *)row[0];  //本来就是char类型的
+  	 te->event_id = atoll(row[0]);  //获取事件id
+  	 te->event_type = *((char *)row[1]); //获取事件类型
+  	 te->lat = atof(row[2]);
+  	 te->lng = atof(row[3]);
+  	 te->time = ;
+  	 te->street = ;
 	   mysql_free_result(res);
 	   recycleConn(conn);
 	   free(sql_str);
 	   return num;
   }
+  te->cancel_type = 
   //未查到数据
   mysql_free_result(res);
 	recycleConn(conn);
