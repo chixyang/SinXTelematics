@@ -330,7 +330,7 @@ int getTrafficEvent(unsigned long long event_id,TrafficEvent *te)
   	//设置查询语句
 	sql_str = (char *)malloc(sizeof(char) * 200);
 	memset(sql_str,0,200);
-	sprintf(sql_str,"select (event_type,time,lat,lng,street,city) from TrafficEvent where event_id = '%ld'", \
+	sprintf(sql_str,"select event_type,time,lat,lng,street,city from TrafficEvent where event_id = '%ld'", \
 	         event_id);
 		//执行查询
 	if(mysql_query(conn,sql_str))
