@@ -21,7 +21,7 @@ create table TrafficEvent
 (
 	event_id bigint auto_increment primary key,
 	event_type tinyint not null,  //'accident','congestion','administration','disaster','others'五类事件
-	time	timestamp(14) default current_timestamp,     //新建记录的时候该值设置为当前时间戳
+	time	int not null,     //时间保存为int形式，记录秒数
 	lat	double(15,12) not null,  //小数点前3位，小数点后12位
 	lng	double(15,12) not null,
 	street	varchar(30) not null,
@@ -53,7 +53,7 @@ create table EventCancellation
 (
 	event_id bigint not null,
 	account varchar(20) not null,
-	time timestamp(14) default current_timestamp,
+	time int not null,
 	type tinyint not null,   //0: relieve,事件已解除 or 1: fakeness,虚假信息
 	//主键，外键
 	primary key (event_id,account),
@@ -67,7 +67,7 @@ create table VehicleTeam
 	team_id	int auto_increment primery key,
 	num	tinyint not null,   //车队的车总数
 	status	tinyint ,   //车队状态（这个状态可以不要）
-	time	timestamp(14) default current_timestamp   //车队组建时间
+	time	int not null   //车队组建时间
 )engine=InnoDB default charset=utf8;
 
 //设置自增值从10000开始，低于10000的留给数据结构使用
