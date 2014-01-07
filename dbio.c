@@ -93,13 +93,17 @@ int db_close()
 }
 
 // 获取当前系统时间
-char *getCurrentTime()
+time_t getCurrentTime()
 {
-	time_t now;
+	return time((time_t *)NULL); //获取当前国际标准时间，存的是总的秒数，因为time_t其实是int，所以所存储最大时间到2038年
+}
+
+//将系统时间转化为字符串形式
+char *timeToString(time_t *tt)
+{
 	struct tm *timenow;
-	time(&now); //获取当前国际标准时间
-        timenow = localtime(&now); //将国际标准时间转换为本地时间
-	return asctime(timenow);
+	timenow = localtime(tt); //将国际标准时间转换为本地时区对应的时间
+	return asctime(timenow);  //将转化的时间结构体转为字符串形式，形如：Sat Oct 28 02:10:06 2000
 }
 
 //添加新用户
