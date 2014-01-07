@@ -7,15 +7,15 @@
 //用户属性列表
 UserAttr = {"pwd","license","city","phone"."status","honest","ip"};
 
-//交通事件的信息结构
+//交通事件的信息结构,struct内部的char指针数据最好直接定义为数组格式，因为新建struct的时候，会malloc，不占用栈空间
 struct traffic_event{
 	unsigned long long event_id;
 	double lat;   
 	double lng;
 	char event_type;
-	char *time;
-	char *street;
-	char cancel_type;
+	int time;
+	char street[30];    //数据库里为30个字符
+	char city[15];      //数据库里为15个字符
 }
 
 //增加用户可信度
@@ -330,7 +330,7 @@ int getTrafficEvent(unsigned long long event_id,TrafficEvent *te)
   	//设置查询语句
 	sql_str = (char *)malloc(sizeof(char) * 200);
 	memset(sql_str,0,200);
-	sprintf(sql_str,"select * from TrafficEvent where event_id = '%ld'", \
+	sprintf(sql_str,"select (event_type,time,lat,lng,street,city) from TrafficEvent where event_id = '%ld'", \
 	         event_id);
 		//执行查询
 	if(mysql_query(conn,sql_str))
@@ -346,23 +346,23 @@ int getTrafficEvent(unsigned long long event_id,TrafficEvent *te)
 	/**++++++++++++++++++++++++++++++++++++++此处代码需要修改，有错误++++++++++++++++++++++++++++++++++++++++**/
 	if((row = mysql_fetch_row(res)) != NULL)
   {
-  	 te->event_id = atoll(row[0]);  //获取事件id
-  	 te->event_type = *((char *)row[1]); //获取事件类型
+  	 te->event_type = *((char *)row[0]); //获取事件类型
+  	 te->time = atoi(row[1]);
   	 te->lat = atof(row[2]);
   	 te->lng = atof(row[3]);
-  	 te->time = ;
-  	 te->street = ;
+  	 memcpy(te->street,row[4],strlen(row[4]));
+  	 memcpy(te->city,row[5],strlen(row[5]));
+	   
 	   mysql_free_result(res);
 	   recycleConn(conn);
 	   free(sql_str);
-	   return num;
+	   return 0;
   }
-  te->cancel_type = 
   //未查到数据
   mysql_free_result(res);
 	recycleConn(conn);
 	free(sql_str);
-	return 0;
+	return -1;
 }
 
 //更新事件的状态
