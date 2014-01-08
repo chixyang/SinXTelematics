@@ -508,4 +508,207 @@ int addEventCancellation(unsigned long long event_id,char *account,char type)
   return 0;
 }
 
-//添加车队信息,返
+//添加车队信息,返回车队id
+int addTeam(char num,char status)
+{
+        MYSQL *conn = getIdleConn();
+  MYSQL_RES *res = NULL;
+  MYSQL_ROW row;
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  //设置插入语句
+  sql_str = (char *)malloc(sizeof(char) * 200);
+  memset(sql_str,0,200);
+  sprintf(sql_str,"insert into VehicleTeam(num,status) values('%c','%c')", \
+                                  num,status);
+  //执行插入并判断插入是否成功,并且获取当前event_id值的返回,由于在同一个conn里面，所以多线程是安全的
+  if((mysql_query(conn,sql_str)) || \
+     ((affected_rows = mysql_affected_rows(conn)) < 1) || \
+     (mysql_query(conn,"SELECT LAST_INSERT_ID()")))  //线程安全的
+  {
+   perror("add team error");
+   recycleConn(conn);
+   free(sql_str);
+   return 0;
+  }
+  //查询成功 
+  int ret = 0;
+  res = mysql_use_result(conn);
+  if((row = mysql_fetch_row(res)) != NULL)
+                ret = atoi(row[0]);  //转换为整型
+      
+  recycleConn(conn);
+  free(sql_str);
+  return ret;
+}
+
+//添加车队成员信息
+int addTeamMember(int team_id,char *account)
+{
+        MYSQL *conn = getIdleConn();
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  //设置插入语句
+  sql_str = (char *)malloc(sizeof(char) * 200);
+  memset(sql_str,0,200);
+  sprintf(sql_str,"insert into TeamMember(team_id,account) values('%d','%s')", \
+          team_id,account);
+  //执行插入并判断插入是否成功
+  if((mysql_query(conn,sql_str)) || \
+     ((affected_rows = mysql_affected_rows(conn)) < 1))
+  {
+   perror("add team member error");
+   recycleConn(conn);
+   free(sql_str);
+   return -1;
+  }
+  //插入成功
+  recycleConn(conn);
+  free(sql_str);
+  return 0;
+}
+
+//删除车队成员
+int delTeamMember(int team_id,char *account)
+{
+        /**首先删除team member**/
+        MYSQL *conn = getIdleConn();
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  //设置删除语句
+  sql_str = (char *)malloc(sizeof(char) * 200);
+  memset(sql_str,0,200);
+  sprintf(sql_str,"delete from TeamMember where team_id = '%d' and account = '%s'", \
+          team_id,account);
+  //执行删除并判断删除是否成功
+  if((mysql_query(conn,sql_str)) || \
+     ((affected_rows = mysql_affected_rows(conn)) < 1))
+  {
+   perror("delete team member error");
+   recycleConn(conn);
+   free(sql_str);
+   return -1;
+  }
+        recycleConn(conn);
+        free(sql_str);
+        return 0;
+}
+
+//获取车队中汽车数目
+char getTeamNum(int team_id)
+{
+        MYSQL *conn = getIdleConn();
+  MYSQL_RES *res;      //查询的result
+  MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW,可看出，mysql查询的返回结果都是char *形式的
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+          //设置查询语句
+        sql_str = (char *)malloc(sizeof(char) * 200);
+        memset(sql_str,0,200);
+        sprintf(sql_str,"select num from VehicleTeam where team_id = '%d'", \
+                 team_id);
+                //执行查询
+        if(mysql_query(conn,sql_str))
+        {
+                perror("select num error");
+                recycleConn(conn);
+                free(sql_str);
+                return 0;
+        }
+        //获取查询结果
+        res = mysql_use_result(conn);
+        //如果查询结果不为为空
+        if((row = mysql_fetch_row(res)) != NULL)
+  {
+           char num = *(char *)row[0];  //本来就是char类型的
+           mysql_free_result(res);
+           recycleConn(conn);
+           free(sql_str);
+           return num;
+  }
+  //未查到数据
+  mysql_free_result(res);
+        recycleConn(conn);
+        free(sql_str);
+        return 0;
+}
+
+//删除车队
+int delTeam(int team_id)
+{
+        MYSQL *conn = getIdleConn();
+  unsigned long affected_rows = 0;   //改变的语句数目
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  //设置删除语句
+  sql_str = (char *)malloc(sizeof(char) * 200);
+  memset(sql_str,0,200);
+  sprintf(sql_str,"delete from VehicleTeam where team_id = '%d'", \
+          team_id);
+  //执行删除并判断删除是否成功
+  if((mysql_query(conn,sql_str)) || \
+     ((affected_rows = mysql_affected_rows(conn)) < 1))
+  {
+   perror("delete team error");
+   recycleConn(conn);
+   free(sql_str);
+   return -1;
+  }
+        recycleConn(conn);
+        free(sql_str);
+        return 0;
+}
+
+//判断某个用户是否是一个车队的
+int queryTeamMember(int team_id,char *account)
+{
+        MYSQL *conn = getIdleConn();
+  MYSQL_RES *res;      //查询的result
+  MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW,可看出，mysql查询的返回结果都是char *形式的
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+          //设置查询语句
+        sql_str = (char *)malloc(sizeof(char) * 200);
+        memset(sql_str,0,200);
+        sprintf(sql_str,"select * from TeamMember where team_id = '%d' and account = '%s'", \
+                 team_id,account);
+                //执行查询
+        if(mysql_query(conn,sql_str))
+        {
+                perror("query team member error");
+                recycleConn(conn);
+                free(sql_str);
+                return -1;
+        }
+        //获取查询结果
+        res = mysql_use_result(conn);
+        //如果查询结果为空
+        if((row = mysql_fetch_row(res)) == NULL)
+  {
+           mysql_free_result(res);
+           recycleConn(conn);
+           free(sql_str);
+           return -1;
+  }
+  //查到数据
+  mysql_free_result(res);
+        recycleConn(conn);
+        free(sql_str);
+        return 0;
+}
+
