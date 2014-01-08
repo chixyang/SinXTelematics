@@ -279,7 +279,7 @@ int updateUser(char *account,void *info,char type)
 
 
 //创建交通数据，返回event_id
-unsigned long long addTrafficEvent(char event_type,double lat,double lng,char *street,char *city,double status)
+unsigned long long addTrafficEvent(char event_type,int time,double lat,double lng,char *street,char *city,double status)
 {
   MYSQL *conn = getIdleConn();
   MYSQL_RES *res = NULL;
@@ -292,8 +292,8 @@ unsigned long long addTrafficEvent(char event_type,double lat,double lng,char *s
 	//设置插入语句
   sql_str = (char *)malloc(sizeof(char) * 200);
   memset(sql_str,0,200);
-  sprintf(sql_str,"insert into TrafficEvent(event_type,lat,lng,street,city,status) values('%c','%lf','%lf','%s','%s','%lf')", \
-	  event_type,lat,lng,street,city,status);
+  sprintf(sql_str,"insert into TrafficEvent(event_type,time,lat,lng,street,city,status) values('%c','%d','%lf','%lf','%s','%s','%lf')", \
+	  event_type,time,lat,lng,street,city,status);
   //执行插入并判断插入是否成功,并且获取当前event_id值的返回,由于在同一个conn里面，所以多线程是安全的
   if((mysql_query(conn,sql_str)) || \
      ((affected_rows = mysql_affected_rows(conn)) < 1) || \
@@ -480,7 +480,7 @@ unsigned long long addDescription(unsigned long long event_id,char *account,char
 }
 
 //添加用户取消交通信息数据
-int addEventCancellation(unsigned long long event_id,char *account,char type)
+int addEventCancellation(unsigned long long event_id,char *account,int time,char type)
 {
 	MYSQL *conn = getIdleConn();
   unsigned long affected_rows = 0;   //改变的语句数目
@@ -491,8 +491,8 @@ int addEventCancellation(unsigned long long event_id,char *account,char type)
   //设置插入语句
   sql_str = (char *)malloc(sizeof(char) * 200);
   memset(sql_str,0,200);
-  sprintf(sql_str,"insert into EventCancellation(event_id,account,type) values('%ld','%s','%c')", \
-	  event_id,account,type);
+  sprintf(sql_str,"insert into EventCancellation(event_id,account,time,type) values('%ld','%s','%d','%c')", \
+	  event_id,account,time,type);
   //执行插入并判断插入是否成功
   if((mysql_query(conn,sql_str)) || \
      ((affected_rows = mysql_affected_rows(conn)) < 1))
@@ -509,9 +509,9 @@ int addEventCancellation(unsigned long long event_id,char *account,char type)
 }
 
 //添加车队信息,返回车队id
-int addTeam(char num,char status)
+int addTeam(char num,char status,int time)
 {
-        MYSQL *conn = getIdleConn();
+  MYSQL *conn = getIdleConn();
   MYSQL_RES *res = NULL;
   MYSQL_ROW row;
   unsigned long affected_rows = 0;   //改变的语句数目
@@ -522,8 +522,8 @@ int addTeam(char num,char status)
   //设置插入语句
   sql_str = (char *)malloc(sizeof(char) * 200);
   memset(sql_str,0,200);
-  sprintf(sql_str,"insert into VehicleTeam(num,status) values('%c','%c')", \
-                                  num,status);
+  sprintf(sql_str,"insert into VehicleTeam(num,status,time) values('%c','%c','%d')", \
+                                  num,status,time);
   //执行插入并判断插入是否成功,并且获取当前event_id值的返回,由于在同一个conn里面，所以多线程是安全的
   if((mysql_query(conn,sql_str)) || \
      ((affected_rows = mysql_affected_rows(conn)) < 1) || \
