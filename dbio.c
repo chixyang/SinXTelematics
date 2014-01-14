@@ -18,6 +18,21 @@ struct traffic_event{
 	char city[15];      //数据库里为15个字符
 };
 
+//事件详细信息描述结构
+struct event_description{
+	char description_type;
+	char description[100];
+	struct event_description *next;
+};
+
+/*用户结构体，主要用于交通事件的发送*/
+struct user_info{
+		char account[20]; //用户账号
+		int ip; //用户ip
+		struct user_info *next;
+};
+
+
 //增加用户可信度
 static double honestIncerment(double honest)
 {
@@ -89,7 +104,7 @@ int db_init(int link_num)
 //关闭数据库
 int db_close()
 {
-  dbpool_destory();
+  return dbpool_destory();
 }
 
 // 获取当前系统时间
@@ -277,6 +292,73 @@ int updateUser(char *account,void *info,char type)
 	return 0;
 }
 
+//根据用户的城市获取用户的账号和ip
+User* getUserInfoByCity(char *city)
+{
+  if((city == NULL))
+	return NULL;
+  MYSQL *conn = getIdleConn();
+  MYSQL_RES *res;      //查询的result
+  MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW,可看出，mysql查询的返回结果都是char *形式的
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  	//设置查询语句
+	sql_str = (char *)malloc(sizeof(char) * 200);
+	memset(sql_str,0,200);
+	sprintf(sql_str,"select account,ip from UserAccount where city = '%s'", \
+	         city);
+		//执行查询
+	if(mysql_query(conn,sql_str))
+	{
+		perror("select User error");
+		recycleConn(conn);
+		free(sql_str);
+		return NULL;
+	}
+	//获取查询结果
+	res = mysql_use_result(conn);
+	int bytesize = sizeof(User);
+	//新建第一个节点
+	User *user = (User *)malloc(bytesize);
+	memset(user,0,bytesize);
+	User *curUser = user, *preUser = NULL;
+	//如果查询结果不为为空
+	while((row = mysql_fetch_row(res)) != NULL)
+    {
+  	 memcpy(curUser->account,row[0],strlen(row[0]));
+	 curUser->ip = atoi(row[1]);
+	 //新建立节点
+	 curUser->next = (User *)malloc(bytesize);
+	 preUser = curUser;
+	 curUser = preUser->next;  //移动到下一个节点
+	 memset(curUser,0,bytesize);
+    }
+	mysql_free_result(res);
+	recycleConn(conn);
+	free(sql_str);
+    //释放掉多申请的一个空间
+	free(curUser);
+	if(user == curUser)//表明未查询到数据
+			user = NULL;
+	preUser->next = NULL;  //前一个节点的next置为NULL
+	return user;
+}
+
+//释放用户信息列表
+void freeUser(User *user)
+{
+	User *preUser = NULL,curUser = user;
+	while(curUser != NULL)
+	{
+			//删除上一个节点并释放
+			preUser = curUser;
+			curUser = preUser->next;
+			free(preUser);
+	}
+			
+}
 
 //创建交通数据，返回event_id
 unsigned long long addTrafficEvent(char event_type,int time,double lat,double lng,char *street,char *city,double status)
@@ -367,9 +449,9 @@ int getTrafficEvent(unsigned long long event_id,TrafficEvent *te)
 //获取事件状态
 double getEventStatus(unsigned long long event_id)
 {
-	if(event_id < )
-		return -1;
-	MYSQL *conn = getIdleConn();
+  if(event_id < START_NUM)
+	return -1.0;
+  MYSQL *conn = getIdleConn();
   MYSQL_RES *res;      //查询的result
   MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW,可看出，mysql查询的返回结果都是char *形式的
   char *sql_str = NULL;   //sql语句
@@ -379,12 +461,57 @@ double getEventStatus(unsigned long long event_id)
   	//设置查询语句
 	sql_str = (char *)malloc(sizeof(char) * 200);
 	memset(sql_str,0,200);
-	sprintf(sql_str,"select event_type,time,lat,lng,street,city from TrafficEvent where event_id = '%ld'", \
+	sprintf(sql_str,"select status from TrafficEvent where event_id = '%ld'", \
 	         event_id);
 		//执行查询
 	if(mysql_query(conn,sql_str))
 	{
-		perror("select traffic event error");
+		perror("select status error");
+		recycleConn(conn);
+		free(sql_str);
+		return -1.0;
+	}
+	//获取查询结果
+	res = mysql_use_result(conn);
+	 double ret = .0d;
+	//如果查询结果不为为空
+	if((row = mysql_fetch_row(res)) != NULL)
+  {
+  	   ret = atof(row[0]); //获取status
+	   
+	   mysql_free_result(res);
+	   recycleConn(conn);
+	   free(sql_str);
+	   return ret;
+  }
+  //未查到数据
+  mysql_free_result(res);
+	recycleConn(conn);
+	free(sql_str);
+	return ret;
+}
+
+//获取事件发生地
+int getEventCity(unsigned long long event_id,char *city)
+{
+  if(event_id < START_NUM)
+	return -1;
+  MYSQL *conn = getIdleConn();
+  MYSQL_RES *res;      //查询的result
+  MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW,可看出，mysql查询的返回结果都是char *形式的
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  	//设置查询语句
+	sql_str = (char *)malloc(sizeof(char) * 200);
+	memset(sql_str,0,200);
+	sprintf(sql_str,"select city from TrafficEvent where event_id = '%ld'", \
+	         event_id);
+		//执行查询
+	if(mysql_query(conn,sql_str))
+	{
+		perror("select city error");
 		recycleConn(conn);
 		free(sql_str);
 		return -1;
@@ -394,23 +521,18 @@ double getEventStatus(unsigned long long event_id)
 	//如果查询结果不为为空
 	if((row = mysql_fetch_row(res)) != NULL)
   {
-  	 te->event_type = *((char *)row[0]); //获取事件类型
-  	 te->time = atoi(row[1]);
-  	 te->lat = atof(row[2]);
-  	 te->lng = atof(row[3]);
-  	 memcpy(te->street,row[4],strlen(row[4]));
-  	 memcpy(te->city,row[5],strlen(row[5]));
+  	 memcpy(city,row[0],strlen(row[0])); //获取城市
 	   
-	   mysql_free_result(res);
-	   recycleConn(conn);
-	   free(sql_str);
-	   return 0;
+	 mysql_free_result(res);
+	 recycleConn(conn);
+	 free(sql_str);
+     return 0;
   }
   //未查到数据
   mysql_free_result(res);
-	recycleConn(conn);
-	free(sql_str);
-	return -1;
+  recycleConn(conn);
+  free(sql_str);
+  return -1;
 }
 
 //更新事件的状态
@@ -477,6 +599,74 @@ unsigned long long addDescription(unsigned long long event_id,char *account,char
   recycleConn(conn);
   free(sql_str);
   return ret;
+}
+
+//通过event_id获取事件详细信息结构列表
+Description* getDescription(unsigned long long event_id)
+{
+  if(event_id < START_NUM)
+	return NULL;
+  MYSQL *conn = getIdleConn();
+  MYSQL_RES *res;      //查询的result
+  MYSQL_ROW row;       //result的row组，被定义为typedef char** MYSQL_ROW,可看出，mysql查询的返回结果都是char *形式的
+  char *sql_str = NULL;   //sql语句
+  
+  //设置字符编码为utf8
+  mysql_setUTF8(conn);
+  	//设置查询语句
+	sql_str = (char *)malloc(sizeof(char) * 200);
+	memset(sql_str,0,200);
+	sprintf(sql_str,"select description_type,description from EventDescription where event_id = '%ld'", \
+	         event_id);
+		//执行查询
+	if(mysql_query(conn,sql_str))
+	{
+		perror("select description error");
+		recycleConn(conn);
+		free(sql_str);
+		return NULL;
+	}
+	//获取查询结果
+	res = mysql_use_result(conn);
+	int bytesize = sizeof(Description);
+	//新建第一个节点
+	Description *description = (Description *)malloc(bytesize);
+	memset(description,0,bytesize);
+	Description *curDes = description, *preDes = NULL;
+	//如果查询结果不为为空
+	while((row = mysql_fetch_row(res)) != NULL)
+    {
+	 curDes->description_type = *((char *)(row[0]));
+  	 memcpy(curDes->description,row[1],strlen(row[1]));
+	 //新建立节点
+	 curDes->next = (Description *)malloc(bytesize);
+	 preDes = curDes;
+	 curDes = preDes->next;  //移动到下一个节点
+	 memset(curDes,0,bytesize);
+    }
+	mysql_free_result(res);
+	recycleConn(conn);
+	free(sql_str);
+    //释放掉多申请的一个空间
+	free(curDes);
+	if(description == curDes)//表明未查询到数据
+			description = NULL;
+	preDes->next = NULL;  //前一个节点的next置为NULL
+	return description;
+}
+
+//释放事件详细信息结构列表
+void freeDescription(Description *des)
+{
+	Description *preDes = NULL,curDes = description;
+	while(curDes != NULL)
+	{
+			//删除上一个节点并释放
+			preDes = curDes;
+			curDes = preDes->next;
+			free(preDes);
+	}
+			
 }
 
 //添加用户取消交通信息数据

@@ -75,6 +75,18 @@ int recycleConn(MYSQL *link);
  */
 int getPreNode(dbList *dblist,MYSQL *link,dbList *preNode);
 
+/**
+ * 向链接池中添加新链接
+ * @param add_num 需要添加的数目
+ * @return 已添加的数目
+ */
+int dbpool_add_dblink(int add_num);
+
+/**
+ * 销毁链接池,如果忙碌列表不为空，则等待忙碌列表为空后进行销毁
+ * @return 0 表示销毁成功，其他表示已经被销毁
+ */
+int dbpool_destroy();
 
 
 

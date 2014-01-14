@@ -82,6 +82,7 @@ int dbpool_init(int max_size)
 //获取空闲链接如果空闲列表不为空
 MYSQL* getIdleConn()
 {
+  /*这里的lock和wait最好换成等待一定时间的函数，因为不能永远等下去，尤其是tcp链接的时候，最多等到某个时间，否则退出等待*/
   pthread_mutex_lock (&(dbpool->db_idlelock));
   
   while((dbpool->idle_size == 0) && (dbpool->db_shutdown != 1))  //数据库池或者空闲列表为空
