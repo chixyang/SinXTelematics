@@ -3,16 +3,11 @@
  */
 #include "teamlist.h"
 
-//车队编号,从1开始
-int teamID;
-
-//车队id访问锁
-pthread_mutex_t id_lock;
 
 //车队临时结构体
 struct team{
 	int id;
-	pthread_mutex_t res_lock;  //修改res_num时需要加锁
+	//pthread_mutex_t res_lock;  //修改res_num时需要加锁//该锁即使存在也不能够单独使用，必须在id_lock中使用，以防该锁在使用的时候被destroy掉
 	char req_num;  //所请求的车数（总车数）
 	char res_num;  //所回复确认加入的车数
 	char timer; //当前剩余存在时间，最开始默认3分钟
@@ -88,7 +83,7 @@ int addTeamList(char req_num,Vehicle *vehicles)
 	VehicleTeam *vt = (VehicleTeam *)malloc(sizeof(VehicleTeam)); //新建一个结点
 	memset(vt,0,sizeof(VehicleTeam));	
 	//初始化结点各属性信息
-	vt->res_lock = PTHREAD_MUTEX_INITIALIZER;
+	//vt->res_lock = PTHREAD_MUTEX_INITIALIZER;
 	vt->req_num = req_num;
 	vt->timer = 3; //表示存活时间为三分钟
 	
@@ -135,48 +130,52 @@ int setVehicleLabel(int team_id,char *account)
 		pthread_mutex_unlock(&id_lock);
 		return -1;
 	}
-	//查询到了team,释放team锁
-	pthread_mutex_unlock(&id_lock);
 	
 	//vehicle列表的操作不需要加锁
 	Vehicle *vh = vt->VehicleList;
 	while(vh && (strcmp(vh->account,account)))
 		vh = vh->next;
 	if(vh == NULL)  //未找到
+	{
+		pthread_mutex_unlock(&id_lock);
 		return -1;
+	}
 	//找到了,加锁保护label和res_num
-	pthread_mutex_lock(&res_lock);
+	//pthread_mutex_lock(&res_lock);
 	if(vh->label == 0)  //判断一下，以防重复响应
 		res_num++;
-	pthread_mutex_unlock(&res_lock);
-	
+	//pthread_mutex_unlock(&res_lock);
+    //任务完成，释放team锁
+	pthread_mutex_unlock(&id_lock);
 	vh->label = 1; //最终label都有设为1
 	return 0;
 }
 
-//删除teamlist的一个结点并加入数据库,参数表示要删除节点的前一个节点
+//删除teamlist的一个结点并加入数据库,参数表示要删除节点的前一个节点,一定要在锁中运行，否则出错
 int teamInDB(VehicleTeam *preVT)
 {
 	VehicleTeam *vt;
 	if(preVT == NULL) //前一个节点为NULL，表示该节点为第一个节点
 	{
 		//删除头结点
-		pthread_mutex_lock(&id_lock);
 		vt = TeamList;
 		TeamList = TeamList->next;
-		pthread_mutex_unlock(&id_lock);
 	}
 	else 
 	{
-		pthread_mutex_lock(&id_lock);
+		//删除普通节点
 		vt = preVT->next;
 		preVT->next = vt->next;
-		pthread_mutex_unlock(&id_lock);
 	}
+	//以下的操作不需要锁，所以撤掉锁，增加并发度
+	pthread_mutex_unlock(&id_lock);
 	//将头结点数据加入数据库中
 	int team_id = addTeam(vt->res_num,1,getCurrentTime());
 	if(team_id <= 0)  //添加失败
+	{
+		pthread_mutex_lock(&id_lock);
 		return -1;
+	}
 	//添加车队成员表,该节点已从列表上删除，不需要加锁了
 	Vehicle *vh = vt->VehicleList,tmp = NULL;
 	while(vh)
@@ -189,8 +188,40 @@ int teamInDB(VehicleTeam *preVT)
 		freeVehicleNode(tmp);
 	}
 	//释放车队节点
-	pthread_mutex_destory(vt->res_lock);
 	free(vt);
+	pthread_mutex_lock(&id_lock);  //最后再加上锁，保持一致
+	return 0;
+}
+
+//删除team节点,一定要在锁中运行
+int delTeam(VehicleTeam *preVT)
+{
+	VehicleTeam *vt;
+	if(preVT == NULL) //前一个节点为NULL，表示该节点为第一个节点
+	{
+		//删除头结点
+		vt = TeamList;
+		TeamList = TeamList->next;
+	}
+	else 
+	{
+		//删除普通节点
+		vt = preVT->next;
+		preVT->next = vt->next;
+	}
+	pthread_mutex_unlock(&id_lock);
+	//删除车队成员表,该节点已从列表上删除，不需要加锁了
+	Vehicle *vh = vt->VehicleList,tmp = NULL;
+	while(vh)
+	{
+		//删除该节点
+		tmp = vh;
+		vh = vh->next;
+		freeVehicleNode(tmp);
+	}
+	//释放车队节点
+	free(vt);
+	pthread_mutex_lock(&id_lock);
 	return 0;
 }
 

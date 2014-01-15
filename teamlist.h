@@ -9,11 +9,20 @@
 #include "dbio.h"
 #include "debug.h"
 
+//车队编号,从1开始
+int teamID;
+
+//车队id访问锁
+pthread_mutex_t id_lock;
+
+//对外使用名称
+#define team_list_lock id_lock
+
 //车队结构体
 typedef struct team VehicleTeam;
 
 //车队列表
-VehicleTeam TeamList;
+VehicleTeam *TeamList;
 
 //单个车结构体
 typedef struct vehicle Vehicle;
@@ -58,7 +67,7 @@ int setVehicleLabel(int team_id,char *account);
 
 /**
  * 删除teamlist的一个节点并加入数据库中
- * @param preVT 要删除节点的前一个节点
+ * @param preVT 要删除节点的前一个节点,若为NULL则表示需删除节点为第一个节点
  * @return 0 表示删除成功，否则失败
  */
 int teamInDB(VehicleTeam *preVT);
