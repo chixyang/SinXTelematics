@@ -39,13 +39,12 @@
  char **UserAttr;   //用户在数据库中的属性
  //用户属性所对应的枚举数值
  enum userattr{
- 	PWD,
- 	LICENSE,
- 	CITY,
- 	PHONE,
- 	STATUS,
- 	HONEST,
- 	IP
+ 	USER_PWD,
+ 	USER_CITY,
+ 	USER_PHONE,
+ 	USER_STATUS,
+ 	USER_HONEST,
+ 	USER_IP
  	};
  	
  	//交通事件类型
@@ -58,18 +57,20 @@
  };
  
  //事件的具体信息描述类型
- enum DescriptionType{
- 	NOTHING,
- 	TEXT,
- 	IMAGE,
- 	AUDIO,
- 	VEDIO
+ enum MSGType{
+ 	MSG_NOTHING,
+ 	MSG_TEXT,
+ 	MSG_IMAGE,
+ 	MSG_AUDIO,
+ 	MSG_VEDIO,
+	MSG_XML,
+	MSG_IPCITY
  };
  
  //事件取消类型
  enum QuitType{
- 	RELIEVE,
- 	FAKENESS
+ 	QUIT_RELIEVE,
+ 	QUIT_FAKENESS
  };
  
  //交通事件结构
@@ -147,7 +148,7 @@
   * @param ip 用户手机ip
   * @return 0：表示成功，其他：插入失败
   */
- int addUser(char *account,char *pwd,char *license,char *city,unsigned long long phone,unsigned int ip);
+ int addUser(char *account,char *pwd,char *city,unsigned long long phone,unsigned int ip);
  
  /**
   * 获取用户信息：city，ip，status
@@ -169,7 +170,7 @@
   * 更新用户信息
   * @param account 用户账户
   * @param info 要改为的信息
-  * @param type 要更改的属性，如IP，PWD等
+  * @param type 要更改的属性:phone,honest,ip,status,pwd,license
   * @return 0：表示更改成功，其他：失败
   */
  int updateUser(char *account,void *info,char type);

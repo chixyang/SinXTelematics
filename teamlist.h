@@ -66,11 +66,18 @@ int addTeamList(char req_num,Vehicle *vehicles);
 int setVehicleLabel(int team_id,char *account);
 
 /**
- * 删除teamlist的一个节点并加入数据库中
+ * 删除teamlist的一个节点并加入数据库中,该函数一定要在id_lock锁中运行，否则会出错
  * @param preVT 要删除节点的前一个节点,若为NULL则表示需删除节点为第一个节点
  * @return 0 表示删除成功，否则失败
  */
 int teamInDB(VehicleTeam *preVT);
+
+/**
+ * 删除teamlist的一个节点，不将该节点加入数据库中，该函数一定要在id_lock锁中运行，否则会出错
+ * @param preVT 要删除节点的前一个节点，若为NULL表示要删除节点为第一个节点
+ * @return 0 表示删除成功，否则失败
+ */
+int delTeam(VehicleTeam *preVT);
 
 
 

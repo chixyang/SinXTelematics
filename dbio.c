@@ -5,7 +5,7 @@
 #include "dbio.h"
 
 //用户属性列表
-UserAttr = {"pwd","license","city","phone"."status","honest","ip"};
+UserAttr = {"pwd","city","phone"."status","honest","ip"};
 
 //交通事件的信息结构,struct内部的char指针数据最好直接定义为数组格式，因为新建struct的时候，会malloc，不占用栈空间
 struct traffic_event{
@@ -122,7 +122,7 @@ char *timeToString(time_t *tt)
 }
 
 //添加新用户
-int addUser(char *account,char *pwd,char *license,char *city,unsigned long long phone,unsigned int ip)
+int addUser(char *account,char *pwd,char *city,unsigned long long phone,unsigned int ip)
 {
   MYSQL *conn = getIdleConn();
   unsigned long affected_rows = 0;   //改变的语句数目
@@ -133,8 +133,8 @@ int addUser(char *account,char *pwd,char *license,char *city,unsigned long long 
 	//设置插入语句
 	sql_str = (char *)malloc(sizeof(char) * 200);
 	memset(sql_str,0,200);
-	sprintf(sql_str,"insert into UserAccount(account,pwd,license,city,phone,ip) values('%s','%s','%s','%s','%ld','%d')", \
-	         account,pwd,license,city,phone,ip);
+	sprintf(sql_str,"insert into UserAccount(account,pwd,city,phone,ip) values('%s','%s','%s','%ld','%d')", \
+	         account,pwd,city,phone,ip);
 	//执行插入并判断插入是否成功
 	if(mysql_query(conn,sql_str) || ((affected_rows = mysql_affected_rows(conn)) < 1))
 	{
@@ -243,7 +243,7 @@ int queryUser(char *account, char *pwd)
 int updateUser(char *account,void *info,char type)
 {
 			/*判断type是否越界*/
-	if((type < PWD) || (type > IP))
+	if((type < USER_PWD) || (type > USER_IP))
 		return -1;
   MYSQL *conn = getIdleConn();
   unsigned long affected_rows = 0;   //改变的语句数目
@@ -257,25 +257,25 @@ int updateUser(char *account,void *info,char type)
 	
 	switch(type)
 	{
-	case PHONE:  //如果传入的属性值是phone
+	case USER_PHONE:  //如果传入的属性值是phone
 		sprintf(sql_str,"update UserAccount set phone = '%ld' where account = '%s'", \
 	          *(unsigned long long *)info,account);
 	  break;
-	case HONEST:  //传入的属性值是honest
+	case USER_HONEST:  //传入的属性值是honest
 	  sprintf(sql_str,"update UserAccount set honest = '%lf' where account = '%s'", \
 	          *(double *)info,account);
 	  break;
-	case IP:      //传入的属性值是ip
+	case USER_IP:      //传入的属性值是ip
 	  sprintf(sql_str,"update UserAccount set ip = '%d' where account = '%s'", \
 	          *(int *)info,account);
 	  break;
-	case STATUS:      //传入的属性值是ip
+	case USER_STATUS:      //传入的属性值是ip
 	  sprintf(sql_str,"update UserAccount set status = '%c' where account = '%s'", \
 	          *(char *)info,account);
 	  break;
-	default:   //其他传入的属性值，pwd，license，city，status
+	default:   //其他传入的属性值，pwd，city
 		sprintf(sql_str,"update UserAccount set '%s' = '%s' where account = '%s'", \
-	         type,(char *)info,account);
+	         UserAttr[type],(char *)info,account);
 	}
 	//执行插入并判断插入是否成功
 	if(mysql_query(conn,sql_str) || ((affected_rows = mysql_affected_rows(conn)) < 1))

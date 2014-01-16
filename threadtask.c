@@ -18,7 +18,7 @@ int sinx_read(int fd,char *buf,int len)
 	//读函数首先判断读入的请求类型，如果是description，则继续读一字节，判断是否为image之类的，若是，则直接读入文件
 }
 
-//tcp发送普通数据函数,假定ip和port都已经转换为网络字节表示形式
+//tcp发送普通数据函数,假定ip和port都已经转换为网络字节表示形式,服务器发起的都是短连接
 int sinx_sendCommonInfo(int ip,short port,char *message,int len)
 {
 	int sockfd;
@@ -70,8 +70,8 @@ void pollTeamList()
 			if(vt->timer <= 0) //超时
 			{
 				if(vt->res_num > 1) //至少有一个确认加入即可
-					teamInDB(preVt); //删除节点并将节点加入数据库中,//还需要发送通知消息
-				else  //无确认加入的汽车，仅删除该节点即可,//还需要发送通知消息
+					teamInDB(preVt); //删除节点并将节点加入数据库中,                  //还需要发送通知消息
+				else  //无确认加入的汽车，仅删除该节点即可,                           //还需要发送通知消息
 					delTeam(preVt); //仅删除节点
 			}
 			//未超时的不管

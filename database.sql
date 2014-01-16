@@ -8,7 +8,6 @@ create table UserAccount
 (
 	account varchar(20) not null primary key,
 	pwd     varchar(20) not null,
-	license char(6),              //车牌的汉字可通过city判断
 	city	varchar(15) not null,    //汉字在utf8编码中占据三个字节
 	phone	bigint not null,
 	status	tinyint not null default 1,  //1: login 表示录入，0：logout 表示录出，当用户注册的时候处于登录状态
