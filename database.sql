@@ -25,11 +25,27 @@ create table TrafficEvent
 	lng	double(15,12) not null,
 	street	varchar(30) not null,
 	city	varchar(15)	not null,
-	status	double	not null
+	founder varchar(20) not null,
+	ack_num int not null default 1,
+	canceller varchar(20),
+	nck_num int default 0,
+	status	tinyint	not null
 )engine=InnoDB default charset=utf8;
 
 //设置auto_increment值从10000开始，10000以内的备用
 alter table TrafficEvent auto_increment = 10000;
+
+//交通事件确认表
+create table EventAck
+(
+	event_id bigint not null,
+	account varchar(20) not null,
+	time int not null,
+	//主键，外键
+	primary key (event_id,account),
+	foreign key (event_id) references TrafficEvent(event_id),
+	foreign key (account) references UserAccount(account)
+)engine=InnoDB default charset=utf8;
 
 //交通事件的详细描述信息表
 create table EventDescription
@@ -39,6 +55,7 @@ create table EventDescription
 	account varchar(20) not null,
 	description_type tinyint not null,  //'nothing','text','image','audio','vedio'五种类型
 	description varchar(100) not null, //50个字或者图片，音频，视频的绝对地址
+	time int not null,
 	//外键约束
 	foreign key (event_id) references TrafficEvent(event_id),
 	foreign key (account) references UserAccount(account)

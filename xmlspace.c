@@ -23,6 +23,7 @@ enum XmlType{
 	XML_UPDATE,      //用户信息更新
 	XML_REGISTER,    //注册
 	XML_UPLOAD,      //交通事件上传
+	XML_EVENTACK,    //交通事件确认
 	XML_CANCEL,      //取消交通事件
 	XML_TEAM,        //组队请求
 	XML_TEAMACK,     //组队确认
@@ -123,11 +124,20 @@ xmlDocPtr parseXml(char *charStream,int size,RetFile *rf,int ip)
 		//交通信息的接收
 		else if(!xmlStrcmp(cur->name,(const xmlChar *)"upload"))
 		{
-			xmlDocPtr retXml = parseEventUploadXml(doc,cur);
+			unsigned long long event_id = parseEventUploadXml(doc,cur);
 			xmlFreeDoc(doc);
-			if(retXml == NULL)
-				return getServerResponseXmlStream(XML_FAIL,XML_UPLOAD,NULL);
-			return retXml;
+			if(event_id)
+				return getServerResponseXmlStream(XML_SUCCESS,XML_UPLOAD,&event_id);
+			return getServerResponseXmlStream(XML_FAIL,XML_UPLOAD,&event_id);
+		}
+		//用户确认交通事件
+		else if(!xmlStrcmp(cur->name,(const xmlChar *)"event-ack"))
+		{
+			unsigned long long event_id = parseEventAckXml(doc,cur);
+			xmlFreeDoc(doc);
+			if(event_id)
+				return getServerResponseXmlStream(XML_SUCCESS,XML_EVENTACK,&event_id);
+			return getServerResponseXmlStream(XML_FAIL,XML_EVENTACK,&event_id);
 		}
 		//用户取消交通信息请求
 		else if(!xmlStrcmp(cur->name,(const xmlChar *)"event-cancellation"))
@@ -300,7 +310,7 @@ int parseLogoutXml(xmlDocPtr doc, xmlNodePtr node)
 		xmlFree(account);
 		return -1;
 	}
-	//登录成功
+	//登出成功
 	xmlFree(account);
 	return 0;
 }
@@ -320,6 +330,7 @@ int parseUpdateXml(xmlDocPtr doc, xmlNodePtr node)
 		return -1;
 	}
 	xmlChar *type = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取type
+	
 	node = node->next;
 	if(xmlStrcmp(node->name,(const xmlChar *)"info"))
 	{
@@ -328,6 +339,7 @@ int parseUpdateXml(xmlDocPtr doc, xmlNodePtr node)
 		return -1;
 	}
 	xmlChar *info = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取info
+	
 	//更新用户信息
 	if(updateUser(account,info,*((char *)type)))
 	{
@@ -336,7 +348,7 @@ int parseUpdateXml(xmlDocPtr doc, xmlNodePtr node)
 		xmlFree(info);
 		return -1;
 	}
-	//登录成功
+	//更新成功
 	xmlFree(account);
 	xmlFree(type);
 	xmlFree(info);
@@ -346,16 +358,213 @@ int parseUpdateXml(xmlDocPtr doc, xmlNodePtr node)
 //解析注册请求
 int parseRegisterXml(xmlDocPtr doc, xmlNodePtr node, int ip)
 {
+	node = node->xmlChildrenNode; //进入子节点
+	if(xmlStrcmp(node->name,(const xmlChar *)"account"))
+		return -1;
+	xmlChar *account = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取account
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"password"))
+	{
+		xmlFree(account);
+		return -1;
+	}
+	xmlChar *password = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取password
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"phone"))
+	{
+		xmlFree(account);
+		xmlFree(password);
+		return -1;
+	}
+	xmlChar *phone = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取phone
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"city"))
+	{
+		xmlFree(account);
+		xmlFree(password);
+		xmlFree(phone);
+		return -1;
+	}
+	xmlChar *city = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取city
+	
+	//添加新用户，注意phone为长整数，传输前后要字符顺序一致
+	if(addUser(account,password,city,*((unsigned long long *)phone),ip))
+	{
+		xmlFree(account);
+		xmlFree(password);
+		xmlFree(phone);
+		xmlFree(city);
+		return -1;
+	}
+	//注册成功
+	xmlFree(account);
+	xmlFree(password);
+	xmlFree(phone);
+	xmlFree(city);
+	return 0;
 }
 
 //解析交通事件接收xml
-xmlDocPtr parseEventUploadXml(xmlDocPtr doc, xmlNodePtr node)
+unsigned long long parseEventUploadXml(xmlDocPtr doc, xmlNodePtr node)
 {
+	node = node->xmlChildrenNode; //进入子节点
+	if(xmlStrcmp(node->name,(const xmlChar *)"account"))
+		return 0ull;
+	xmlChar *account = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取account
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"lat"))
+	{
+		xmlFree(account);
+		return 0ull;
+	}
+	xmlChar *lat = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取lat
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"lng"))
+	{
+		xmlFree(account);
+		xmlFree(lat);
+		return 0ull;
+	}
+	xmlChar *lng = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取lng
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"street"))
+	{
+		xmlFree(account);
+		xmlFree(lat);
+		xmlFree(lng);
+		return 0ull;
+	}
+	xmlChar *street = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取street
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"city"))
+	{
+		xmlFree(account);
+		xmlFree(lat);
+		xmlFree(lng);
+		xmlFree(street);
+		return 0ull;
+	}
+	xmlChar *city = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取city
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"event-type"))
+	{
+		xmlFree(account);
+		xmlFree(lat);
+		xmlFree(lng);
+		xmlFree(street);
+		xmlFree(city);
+		return 0ull;
+	}
+	xmlChar *type = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取event-type
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"status"))
+	{
+		xmlFree(account);
+		xmlFree(lat);
+		xmlFree(lng);
+		xmlFree(street);
+		xmlFree(city);
+		xmlFree(type);
+		return 0ull;
+	}
+	xmlChar *status = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取status
+	
+	//获取当前时间
+	int time = getCurrentTime();
+	//添加事件
+	unsigned long long event_id = 0ull;
+	event_id = addTrafficEvent(*((char *)type),time,*((double *)lat),*((double *)lng),street,city,account,*((char *)status));
+	
+	//添加事件成功
+	free(status);
+	xmlFree(account);
+	xmlFree(lat);
+	xmlFree(lng);
+	xmlFree(street);
+	xmlFree(city);
+	xmlFree(type);
+	xmlFree(status);
+	return event_id;
+}
+
+//解析交通事件确认xml
+unsigned long long parseEventAckXml(xmlDocPtr doc, xmlNodePtr node)
+{
+	node = node->xmlChildrenNode; //进入子节点
+	if(xmlStrcmp(node->name,(const xmlChar *)"account"))
+		return 0ull;
+	xmlChar *account = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取account
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"event-id"))
+	{
+		xmlFree(account);
+		return 0ull;
+	}
+	xmlChar *event_id_ptr = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取event_id
+	unsigned long long event_id = *((unsigned long long *)event_id_ptr);
+	//获取当前时间
+	int time = getCurrentTime();
+	//添加事件确认信息并更新ack_num值(线程安全？)
+	if(addEventAck(account,event_id,time) || incrementEventAck(event_id))
+	{
+		xmlFree(account);
+		xmlFree(event_id_ptr);
+		return 0ull;
+	}
+	//添加成功
+	xmlFree(account);
+	xmlFree(event_id_ptr);
+	return event_id;
 }
 
 //解析用户取消交通事件xml
 unsigned long long parseCancelXml(xmlDocPtr doc, xmlNodePtr node)
 {
+	node = node->xmlChildrenNode; //进入子节点
+	if(xmlStrcmp(node->name,(const xmlChar *)"account"))
+		return 0ull;
+	xmlChar *account = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取account
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"event-id"))
+	{
+		xmlFree(account);
+		return 0ull;
+	}
+	xmlChar *event_id_ptr = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取event_id
+	unsigned long long event_id = *((unsigned long long *)event_id_ptr);
+	xmlFree(event_id_ptr);
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"cancel-type"))
+	{
+		xmlFree(account);
+		return 0ull;
+	}
+	xmlChar *type = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取type
+	//获取当前时间
+	int time = getCurrentTime();
+	//添加事件取消信息并更新nck_num值(线程安全？)
+	if(addEventCancellation(event_id,account,time,*((char *)type)) || incrementEventCancel(event_id))
+	{
+		xmlFree(account);
+		xmlFree(type);
+		return 0ull;
+	}
+	//添加成功
+	xmlFree(account);
+	xmlFree(type);
+	return event_id;
 }
 
 //解析交通事件详细请求xml

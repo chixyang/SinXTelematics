@@ -154,7 +154,7 @@
   * 获取用户信息：city，ip，status
   * @param account 用户账户
   * @param type 所获取的信息类型：CITY，IP，STATUS
-  * @return NULL 获取失败，其他：获取成功,返回的数据空间需要用free显示释放
+  * @return NULL 获取失败，其他：获取成功,返回的数据空间需要用free显示释放,ip需要用atoi转换，status需要用atof转换
   */
  char* getUserInfo(char *account,char type);
  
@@ -195,10 +195,11 @@
   * @param lng 事件精度
   * @param sreet 事件发生的街道
   * @param city 事件发生的城市
-  * @param status 事件当前的状态（填入当前发布用户的可信度）
+  * @param account 事件第一个发布者
+  * @param status 事件的隐私等级，1：public or 0：private
   * @return 0:表示添加失败，其他表示当前添加事件的event_id
   */
- unsigned long long addTrafficEvent(char event_type,int time,double lat,double lng,char *street,char *city,double status);
+ unsigned long long addTrafficEvent(char event_type,int time,double lat,double lng,char *street,char *city,char *account,char status);
  
  /**
   * 获取交通事件信息
@@ -224,12 +225,20 @@
  int getEventCity(unsigned long long event_id,char *city);
 
  /**
-  * 更新交通事件的状态
+  * 增加交通事件确认数
   * @param event_id 事件号
-  * @param status 事件的状态
   * @return 0:表示成功，其他：表示失败
   */
- int updateEventStatus(unsigned long long event_id, double status);
+ int IncrementEventAck(unsigned long long event_id);
+ 
+ /**
+  * 添加交通事件确认
+  * @param account 用户账户
+  * @param event_id 事件id
+  * @param time 当前事件
+  * @return 0：表示成功，其他：表示失败
+  */
+  int addEventAck(char *account,unsigned long long event_id,int time);
  
  /**
   * 添加事件详细信息
@@ -239,7 +248,7 @@
   * @param description 描述具体的内容或者其链接
   * @return 0：表示添加失败，其他表示当前添加的具体信息的description_id
   */
- unsigned long long addDescription(unsigned long long event_id,char *account,char description_type,char *description);
+ unsigned long long addDescription(unsigned long long event_id,char *account,char description_type,char *description,int time);
 
  /**
   * 通过事件id获取事件详细信息结构列表
@@ -263,6 +272,13 @@
   * @return 0：表示成功，其他：失败
   */
  int addEventCancellation(unsigned long long event_id,char *account,int time,char type);
+ 
+ /**
+  * 增加交通事件取消数
+  * @param event_id 事件id
+  * @return 0 增加成功，否则失败
+  */
+ int incrementEventCancel(unsigned long long event_id);
  
  /**
   * 添加车队信息
