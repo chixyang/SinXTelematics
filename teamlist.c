@@ -43,7 +43,7 @@ void freeVehicleNode(Vehicle *vh)
 Vehicle* addVehicles(Vehicle *head,char *account)
 {
 	//获取ip
-	char* ipstr = getUserInfo(account,IP);
+	char* ipstr = getUserInfo(account,USER_IP);
 	if(ipstr == NULL)
 	{
 		perror("add Vehicles error");
@@ -74,7 +74,7 @@ Vehicle* addVehicles(Vehicle *head,char *account)
 	//返回头指针
 	return head;
 }
-//添加新项到结构体中
+//添加新项到结构体中,返回team_id
 int addTeamList(char req_num,Vehicle *vehicles)
 {
 	if((req_num == 0) || (vehicles == NULL))
@@ -89,7 +89,7 @@ int addTeamList(char req_num,Vehicle *vehicles)
 	
 	pthread_mutex_lock(&id_lock);
 	//设置id号
-	vt->id = teamID % MAX_LIST_NUM + 1;   //保证在1-10000之间
+	vt->id = (teamID++) % MAX_LIST_NUM + 1;   //保证在1-10000之间
 	/*其他属性都为0*/
 	
 	//TeamList是否为空
@@ -97,7 +97,7 @@ int addTeamList(char req_num,Vehicle *vehicles)
 	{
 		TeamList = vt;
 		pthread_mutex_unlock(&id_lock);
-		return 0;
+		return vt->id;
 	}
 	//TeamList不为空
 	VehicleTeam *tmp = TeamList;
@@ -106,10 +106,10 @@ int addTeamList(char req_num,Vehicle *vehicles)
 	tmp->next = vt;
 	pthread_mutex_unlock(&id_lock);
 	
-	return 0;
+	return vt->id;
 }
 
-//修改res_num和Vehicle链表项
+//修改res_num和Vehicle链表项,返回值为请求值与响应值的差值或-1
 int setVehicleLabel(int team_id,char *account)
 {
 	if((team_id == 0) || (account == NULL))
@@ -143,12 +143,13 @@ int setVehicleLabel(int team_id,char *account)
 	//找到了,加锁保护label和res_num
 	//pthread_mutex_lock(&res_lock);
 	if(vh->label == 0)  //判断一下，以防重复响应
-		res_num++;
+		vt->res_num++;
 	//pthread_mutex_unlock(&res_lock);
     //任务完成，释放team锁
+	int ret = vt->req_num - vt->res_num;
 	pthread_mutex_unlock(&id_lock);
-	vh->label = 1; //最终label都有设为1
-	return 0;
+	vh->label = 1; //最终label都设为1
+	return ret;
 }
 
 //删除teamlist的一个结点并加入数据库,参数表示要删除节点的前一个节点,一定要在锁中运行，否则出错
@@ -173,7 +174,7 @@ int teamInDB(VehicleTeam *preVT)
 	int team_id = addTeam(vt->res_num,1,getCurrentTime());
 	if(team_id <= 0)  //添加失败
 	{
-		pthread_mutex_lock(&id_lock);
+		pthread_mutex_lock(&id_lock);//最后再加上锁，保持一致
 		return -1;
 	}
 	//添加车队成员表,该节点已从列表上删除，不需要加锁了

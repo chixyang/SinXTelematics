@@ -8,9 +8,13 @@
 
 //所返回的文件结构体
 struct ret_file{
-	int fd;  //文件描述符
 	char type; //文件类型
+	union {
+	int fd;  //文件描述符
+	char *text;  //text数据
+	}data;
 	int size; //文件大小
+	struct ret_file *next;  //下一个节点
 };
 
 //xml文件生成的类型，内部用，所以定义在.c文件里
@@ -177,7 +181,7 @@ xmlDocPtr parseXml(char *charStream,int size,RetFile *rf,int ip)
 			int ret = parseTeamAckXml(doc,cur);
 			xmlFreeDoc(doc);
 			//修改成功
-			if(!ret)
+			if(ret >= 0)
 				return getServerResponseXmlStream(XML_SUCCESS,XML_TEAMACK,NULL);			
 			//修改失败
 			return getServerResponseXmlStream(XML_FAIL,XML_TEAMACK,NULL);
@@ -185,21 +189,21 @@ xmlDocPtr parseXml(char *charStream,int size,RetFile *rf,int ip)
 		//退出组队申请
 		else if(!xmlStrcmp(cur->name,(const xmlChar *)"teamquit"))
 		{
-			unsigned long long team_id = parseTeamQuitXml(doc,cur);
+			int ret = parseTeamQuitXml(doc,cur);
 			xmlFreeDoc(doc);
 			//修改成功
-			if(team_id)
-				return getServerResponseXmlStream(XML_SUCCESS,XML_TEAMQUIT,&team_id);			
+			if(!ret)
+				return getServerResponseXmlStream(XML_SUCCESS,XML_TEAMQUIT,NULL);			
 			//修改失败
-			return getServerResponseXmlStream(XML_FAIL,XML_TEAMQUIT,&team_id);
+			return getServerResponseXmlStream(XML_FAIL,XML_TEAMQUIT,NULL);
 		}
 		//邀请加入车队
 		else if(!xmlStrcmp(cur->name,(const xmlChar *)"teamadd"))
 		{
-			unsigned long long team_id = parseTeamAddXml(doc,cur);
+			int team_id = parseTeamAddXml(doc,cur);
 			xmlFreeDoc(doc);
 			//修改成功
-			if(team_id)
+			if(team_id > 0)
 				return getServerResponseXmlStream(XML_SUCCESS,XML_TEAMADD,&team_id);			
 			//修改失败
 			return getServerResponseXmlStream(XML_FAIL,XML_TEAMADD,&team_id);
@@ -515,7 +519,7 @@ unsigned long long parseEventAckXml(xmlDocPtr doc, xmlNodePtr node)
 	//获取当前时间
 	int time = getCurrentTime();
 	//添加事件确认信息并更新ack_num值(线程安全？)
-	if(addEventAck(account,event_id,time) || incrementEventAck(event_id))
+	if(addEventAck(account,event_id,time))
 	{
 		xmlFree(account);
 		xmlFree(event_id_ptr);
@@ -555,7 +559,7 @@ unsigned long long parseCancelXml(xmlDocPtr doc, xmlNodePtr node)
 	//获取当前时间
 	int time = getCurrentTime();
 	//添加事件取消信息并更新nck_num值(线程安全？)
-	if(addEventCancellation(event_id,account,time,*((char *)type)) || incrementEventCancel(event_id))
+	if(addEventCancellation(event_id,account,time,*((char *)type)))
 	{
 		xmlFree(account);
 		xmlFree(type);
@@ -567,29 +571,220 @@ unsigned long long parseCancelXml(xmlDocPtr doc, xmlNodePtr node)
 	return event_id;
 }
 
-//解析交通事件详细请求xml
+//解析交通事件详细请求xml，rf中的属性为type，fd,txt，size,需要调用freeRetFile函数显式释放rf列表
 int parseEventRequestXml(xmlDocPtr doc, xmlNodePtr node,RetFile *rf)
 {
+	node = node->xmlChildrenNode; //进入子节点
+	if(xmlStrcmp(node->name,(const xmlChar *)"account"))
+		return -1;
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"event-id"))
+		return -1;
+	xmlChar *event_id_ptr = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取event_id
+	unsigned long long event_id = *((unsigned long long *)event_id_ptr);
+	xmlFree(event_id_ptr);
+	
+	//查询事件的详细信息
+	Description *des = NULL,*tmp = NULL;
+	des = getDescription(event_id);
+	if(des == NULL)
+		return -1;
+	//将详细信息复制到对应的rf结构中
+	tmp = des;
+	int bytesize = sizeof(RetFile);
+	while(tmp != NULL)
+	{
+		rf->type = tmp->description_type;
+		if(rf->type == MSG_TEXT)  //文本信息
+		{
+			rf->size = strlen(tmp->description);
+			rf->data.text = (char *)malloc(rf->size);
+			//复制文本数据
+			memcpy(rf->data.text,tmp->description,rf->size);
+		}
+		else  //image和vedio信息
+		{
+		     //获得文件描述符
+			rf->data.fd = open(tmp->description,ORDONLY);
+			if(rf->data.fd < 0) //文件打开错误
+			{
+				rf->data.fd = 0;  //修改回去
+				freeDescription(des);
+				return -1;
+			}
+			//获得文件大小
+			struct stat fileinfo;
+			stat(tmp->description,fileinfo);
+			rf->size = fileinfo.st_size;
+		}
+		//tmp后移
+		tmp = tmp->next;
+		if(tmp)
+			break;
+		//新建下一个节点
+		rf->next = (RetFile *)malloc(bytesize);
+		rf = rf->next;
+		memst(rf,0,bytesize);
+	}
+	//添加成功
+	freeDescription(des);
+	return 0;
 }
 
-//解析组队信息请求xml
+//释放RetFile列表
+void freeRetFile(RetFile *rf)
+{
+	RetFile preRf = NULL;
+	while(rf)
+	{
+		preRf = rf;
+		rf = preRf->next;
+		free(preRf);
+	}
+}
+
+//解析组队信息请求xml,返回的是team_id
 int parseTeamXml(xmlDocPtr doc, xmlNodePtr node)
 {
+	node = node->xmlChildrenNode; //进入子节点
+	if(xmlStrcmp(node->name,(const xmlChar *)"account"))
+		return 0;
+	int req_num = 0; //所请求加入的车数
+	Vehicle vhi = NULL;
+	//建立vehicle列表
+	while(node != NULL)
+	{
+		xmlChar *acc = xmlNodeListGetString(doc,node->xmlChildrenNode,1);
+		vhi = addVehicles(vhi,acc);
+		req_num++;
+		xmlFree(acc);
+		node = node->next;
+	}
+	//建立team项
+	return addTeamList(req_num,vhi);
 }
 
 //解析组队确认xml
 int parseTeamAckXml(xmlDocPtr doc, xmlNodePtr node)
 {
+	node = node->xmlChildrenNode; //进入子节点
+	if(xmlStrcmp(node->name,(const xmlChar *)"account"))
+		return -1;
+	xmlChar *account = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取account
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"team-id"))
+	{
+		xmlFree(account);
+		return -1;
+	}
+	xmlChar *team_id_ptr = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取team_id
+	int team_id = *((int *)team_id_ptr);
+	xmlFree(team_id_ptr);
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"ack"))
+	{
+		xmlFree(account);
+		return -1;
+	}
+	xmlChar *ack_ptr = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取ack
+	int ack = *((int *)ack_ptr);
+	if(ack != 200)  //不加入
+	{
+		xmlFree(account);
+		return 0;
+	}
+	//加入
+	//更新车队列表信息
+	int ret = setVehicleLabel(team_id,account);
+	if(ret != 0)  //<0表示出错，则出错退出，>0表示还未全部响应,正常返回继续等待ack
+	{
+		xmlFree(account);
+		return ret;
+	}
+	xmlFree(account);
+	//收到全部ack，需要加入数据库中去
+	pthread_mutex_lock(&team_list_lock);
+	VehicleTeam *vt  = TeamList, preVt = NULL;
+	while(vt != NULL)
+	{
+		if(vt->id == team_id)
+		{
+			teamInDB(preVt); //删除节点并将节点加入数据库中,                  //还需要发送通知消息
+			break;
+		}
+		//未超时的不管
+		preVt = vt;
+		vt = preVt->next;
+	}
+	pthread_mutex_unlock(&team_list_lock);
+	return ret;   //ret为0
 }
 
 //解析退出组队xml
-unsigned long long parseTeamQuitXml(xmlDocPtr doc, xmlNodePtr node)
+int parseTeamQuitXml(xmlDocPtr doc, xmlNodePtr node)
 {
+	node = node->xmlChildrenNode; //进入子节点
+	if(xmlStrcmp(node->name,(const xmlChar *)"account"))
+		return -1;
+	xmlChar *account = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取account
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"team-id"))
+	{
+		xmlFree(account);
+		return -1;
+	}
+	xmlChar *team_id_ptr = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取team_id
+	int team_id = *((int *)team_id_ptr);
+	xmlFree(team_id_ptr);
+	//数据库中删除退出数据项
+	return delTeamMember(team_id,account);
 }
 
-//解析邀请加入对xml
-unsigned long long parseTeamAddXml(xmlDocPtr doc, xmlNodePtr node)
+//解析邀请加入对xml，返回team_id
+int parseTeamAddXml(xmlDocPtr doc, xmlNodePtr node)
 {
+	node = node->xmlChildrenNode; //进入子节点
+	if(xmlStrcmp(node->name,(const xmlChar *)"account"))
+		return -1;
+	xmlChar *account = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取account
+	
+	node = node->next;
+	if(xmlStrcmp(node->name,(const xmlChar *)"team-id"))
+	{
+		xmlFree(account);
+		return -1;
+	}
+	xmlChar *team_id_ptr = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取team_id
+	int team_id = *((int *)team_id_ptr);
+	xmlFree(team_id_ptr);
+	node = node->next; //获取邀请加入的节点
+	if(xmlStrcmp(node->name,(const xmlChar *)"account"))
+	{	
+		xmlFree(account);
+		return -1;
+	}
+	xmlChar *account1 = xmlNodeListGetString(doc,node->xmlChildrenNode,1);  //获取account1
+	//查询team_id对应的成员里面是否有account
+	if(queryTeamMember(team_id,account)) //没查到
+	{
+		xmlFree(account);
+		xmlFree(account1);
+		return -1;
+	}
+	xmlFree(account);
+	//查到了,加入数据库中
+	if(addTeamMember(team_id,account1) != 0)//未添加成功
+	{
+		xmlFree(account1);
+		return -1;
+	}
+	//添加成功
+	xmlFree(account1);
+	return team_id;
 }
 
 //获取服务器回复的xml流

@@ -1,5 +1,5 @@
 /**
- * 数据库操作函数的实现
+ * 数据库操作函数的实现,mysql行级锁的设定
  */
 
 #include "dbio.h"
@@ -895,7 +895,7 @@ char getTeamNum(int team_id)
 //删除车队
 int delTeam(int team_id)
 {
-        MYSQL *conn = getIdleConn();
+  MYSQL *conn = getIdleConn();
   unsigned long affected_rows = 0;   //改变的语句数目
   char *sql_str = NULL;   //sql语句
   

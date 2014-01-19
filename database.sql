@@ -15,6 +15,11 @@ create table UserAccount
 	ip	int unsigned not null            //直接存储大端法的网络地址
 )engine=InnoDB default charset=utf8;
 
+//建立account索引
+create index idx_account on UserAccount(account);
+//建立city索引
+create index idx_city on UserAccount(city);
+
 //交通事件表
 create table TrafficEvent
 (
@@ -35,6 +40,9 @@ create table TrafficEvent
 //设置auto_increment值从10000开始，10000以内的备用
 alter table TrafficEvent auto_increment = 10000;
 
+//建立event_id索引
+create index idx_id_onEvent on TrafficEvent(event_id);
+
 //交通事件确认表
 create table EventAck
 (
@@ -46,6 +54,16 @@ create table EventAck
 	foreign key (event_id) references TrafficEvent(event_id),
 	foreign key (account) references UserAccount(account)
 )engine=InnoDB default charset=utf8;
+
+//建立事件ack_num自加触发器
+create trigger trg_AckAdd after insert on EventAck
+for each row 
+begin 
+update TrafficEvent set ack_num = ack_num + 1 where event_id = new.event_id
+end;
+
+//建立event_id索引
+create index idx_id_onEventAck on EventAck(event_id);
 
 //交通事件的详细描述信息表
 create table EventDescription
@@ -64,6 +82,9 @@ create table EventDescription
 //为统一，也从10000开始
 alter table EventDescription auto_increment = 10000;
 
+//建立event_id索引
+create index idx_id_onDescription on EventDescription(event_id);
+
 //交通事件撤销表
 create table EventCancellation
 (
@@ -76,6 +97,16 @@ create table EventCancellation
 	foreign key (event_id) references TrafficEvent(event_id),
 	foreign key (account) references UserAccount(account)
 )engine=InnoDB default charset=utf8;
+
+//建立event_id索引
+create index idx_id_onCancell on EventCancellation(event_id);
+
+//建立事件nck_num自加触发器
+create trigger trg_nckAdd after insert on EventCancellation
+for each row 
+begin 
+update TrafficEvent set nck_num = nck_num + 1 where event_id = new.event_id
+end;
 
 //车队信息表
 create table VehicleTeam
@@ -100,5 +131,24 @@ create table TeamMember
 	foreign key (account) references UserAccount(account)
 )engine=InnoDB default charset=utf8;
 
+//建立team_id索引
+create index idx_id_onTeam on TeamMemeber(team_id);
 
+//建立车队num自加触发器
+create trigger trg_numAdd after insert on TeamMember
+for each row 
+begin 
+update VehicleTeam set num = num + 1 where team_id = new.team_id
+end;
+
+//建立车队num自减触发器,减为0时要删除VehicleTeam的一个记录，这个可以吗？？？？？
+create trigger trg_numMinus after delete on TeamMember
+for each row 
+begin 
+if VehicleTeam.num = 1 where team_id = new.team_id then
+	delete from VehicleTeam where team_id = new.team_id
+else 
+	update VehicleTeam set num = num - 1 where team_id = new.team_id
+end if;
+end;
 

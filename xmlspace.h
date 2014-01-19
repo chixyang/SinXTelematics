@@ -7,6 +7,7 @@
 #define XMLSPACE_H
 
 
+#include <fcntl.h>
 #include "debug.h"
 
 
